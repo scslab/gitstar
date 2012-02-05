@@ -1,1 +1,1 @@
-server: ./Main
+server: hails
