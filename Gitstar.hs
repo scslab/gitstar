@@ -1,14 +1,16 @@
 module Gitstar where
 
-import qualified Data.ByteString.Char8 as S8
+import Data.Monoid
 import Hails.HttpServer
+import Data.IterIO.Http.Support.RestController
+import Data.IterIO.Http.Support.Routing
 import Data.IterIO.Http
-import Data.IterIO.Server.TCPServer
 import LIO.DCLabel
-import LIO
-import System.Environment
+
+import Controllers
 
 server :: DCPrivTCB -> HttpRequestHandler DC ()
 server priv = do
-  runHttpRoute $ routeFileSys systemMimeMap (dirRedir "index.html") "static"
+  runLHttpRoute $ mconcat [ routeRestController "messages" MessagesController
+                          , routeFileSys systemMimeMap (dirRedir "index.html") "static" ]
 
