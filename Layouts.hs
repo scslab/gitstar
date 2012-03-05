@@ -15,14 +15,14 @@ stylesheet uri = link ! rel "stylesheet" ! type_ "text/css" ! href (toValue uri)
 
 application :: Html -> Html
 application content = docTypeHtml $ do
-	head $ do
-		title $ "GitStar - Where loops count"
-		stylesheet "/css/bootstrap.css"
-		stylesheet "/css/application.css"
- 	body $ do
-		div ! class_ "navbar" $ do
-			div ! class_ "navbar-inner" $ do
-				div ! class_ "container" $ do
-					h1 $ a ! href "/" ! class_ "brand" $ "Gitstar"
-		div ! class_ "container" $ do
-			content
+  head $ do
+    title $ "GitStar - Where loops count"
+    stylesheet "/css/bootstrap.css"
+    stylesheet "/css/application.css"
+    body $ do
+     div ! class_ "navbar" $ do
+       div ! class_ "navbar-inner" $ do
+         div ! class_ "container" $ do
+           h1 $ a ! href "/" ! class_ "brand" $ "Gitstar"
+     div ! class_ "container" $ do
+       content
