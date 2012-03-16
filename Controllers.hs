@@ -3,66 +3,75 @@
 
 module Controllers where
 
-import Prelude hiding (id)
+import Prelude hiding (lookup)
 
 import Layouts
+import Models
+import Policy.Gitstar
+import Views
 
-import LIO (liftLIO, getLabel, getClearance)
-import LIO.DCLabel (DC, DCLabel)
-import Hails.Database
-import Hails.Database.MongoDB hiding (unpack)
+import LIO
+import LIO.DCLabel
 
-import Data.ByteString.Lazy.Char8
 import qualified Data.ByteString.Char8 as S
-import Data.IterIO.Http.Support.Action
-import Data.IterIO.Http.Support.RestController
-import Text.Blaze.Html5 hiding (param)
-import Text.Blaze.Html5.Attributes hiding (form, label)
+import Data.ByteString.Lazy.Char8
+import Data.IterIO.Http
+import Data.IterIO.Http.Support
 
-data UsersController = UsersController
+data ProjectsController = ProjectsController
 
-instance RestController DC UsersController where
-  restNew _ = do
-    renderHtml $ do
-      h1 $ "Register an account"
-      form ! action "/users" ! method "POST" $ do
-        label $ do
-          "Email:"
-          input ! type_ "email" ! name "email" ! placeholder "princess@solofam.me"
-        label $ do
-          "Display Name:"
-          input ! type_ "text" ! name "name" ! placeholder "Leia Organa"
-        label $ do
-          "Website/Blog:"
-          input ! type_ "text" ! name "website" ! placeholder "http://ob1fan.wordpress.com"
-        input ! type_ "submit" ! class_ "btn"
+instance RestController DC ProjectsController where
+  restShow _ pid = do
+    policy <- liftLIO gitstar
+    projM <- liftLIO $ findBy policy "projects" "_id" $ unpack pid
+    case projM of
+      Just proj -> renderHtml $ showProject proj
+      Nothing -> respond404
+
+  restEdit _ pid = do
+    policy <- liftLIO gitstar
+    projM <- liftLIO $ findBy policy "projects" "_id" $ unpack pid
+    case projM of
+      Just proj -> renderHtml $ editProject proj
+      Nothing -> respond404
+
+  restNew _ = renderHtml $ newProject
 
   restCreate _ = do
-    (Just username) <- requestHeader "authorization"
-    email <-  fromParam "email"
-    name <- fromParam "name"
-    website <- fromParam "website"
-    (Right uid) <- liftLIO $ withDB "gitstar" $ do
-      insert "users" ([ "name" := (val $ unpack name)
-                      , "email" := (val $ unpack email)
-                      , "website" := (val $ unpack website)
-                      , "username" := (val $ S.unpack username)
-                      ] :: Document DCLabel)
-    renderHtml $ do
-      h1 $ do "Welcome to Gitstar "; toHtml $ unpack name; "!"
-      p $ do "UID: "; toHtml $ show uid
-             table $ do tr $ do
-                          td "E-mail: "
-                          td $ toHtml.unpack $ email
-                        tr $ do
-                          td "Website/Blog: "
-                          td $ toHtml.unpack $ website
-    where fromParam str = param str >>= \p -> return $ maybe "" (paramValue) p
+    policy <- liftLIO gitstar
+    (Just user) <- requestHeader "x-hails-user"
+    pName <- fmap (maybe undefined (unpack . paramValue)) $ param "_id"
+    pRepo <- fmap (maybe undefined (unpack . paramValue)) $ param "repository"
+    pPublic <- fmap (maybe False (const True)) $ param "public"
+    pDesc <- param "description"
+    let proj = Project {
+        projectName = pName
+      , projectDescription = fmap (unpack . paramValue) $ pDesc
+      , projectRepository = pRepo
+      , projectCollaborators = [S.unpack user]
+      , projectPublic = pPublic
+    }
+    erf <- liftLIO $ insertRecord policy "projects" proj
+    case erf of
+      Right _ -> redirectTo $ "/projects/" ++ (projectName proj)
+      Left f -> respondStat stat500
 
-data MessagesController = MessagesController
+  restUpdate _ pid = do
+    policy <- liftLIO gitstar
+    projM <- liftLIO $ findBy policy "projects" "_id" $ unpack pid
+    case projM of
+      Just proj -> do
+        pRepo <- fmap (maybe undefined (unpack . paramValue)) $ param "repository"
+        pPublic <- fmap (maybe False (const True)) $ param "public"
+        pDesc <- param "description"
+        let projFinal = proj {
+            projectDescription = fmap (unpack . paramValue) $ pDesc
+          , projectRepository = pRepo
+          , projectPublic = pPublic
+        }
+        erf <- liftLIO $ saveRecord policy "projects" projFinal
+        case erf of
+          Right _ -> redirectTo $ "/projects/" ++ (projectName projFinal)
+          Left f -> respondStat stat500
+      Nothing -> respond404
 
-instance Monad m => RestController m MessagesController where
-  restIndex _ = do
-    renderHtml $ do
-      h1 $ "Messages"
-      p "Hello World"
