@@ -1,21 +1,42 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, DeriveDataTypeable #-}
 module Policy.Gitstar where
 
+import Prelude hiding (lookup)
+
+import Data.Typeable
+import Hails.Database
 import Hails.Database.MongoDB
 import LIO.DCLabel
 import DCLabel.NanoEDSL
 
 lcollections = newDC (<>) ("gitstar" :: String)
-lpub = newDC (<>) (<>)
+colClearance = newDC ("gitstar" :: String) (<>)
 
-usersCollection :: DC (Collection DCLabel)
-usersCollection = collection "users" lpub lpub $
-  RawPolicy (\_ -> lpub) [("username", SearchableField)]
+labelForProject doc = newDC collabsOrPublic collabs
+  where collabs = maybe (<>)
+          (listToComponent . (:[]) . listToDisj . (++ ["gitstar"]))
+          (lookup "collaborators" doc :: Maybe [String])
+        collabsOrPublic = case lookup "public" doc of
+          Just True -> (<>)
+          _ -> collabs
 
-configDB :: DBConf -> DC (Database DCLabel)
-configDB conf = do
-  db <- labelDatabase conf lcollections lpub
-  myUsersCollection <- usersCollection
-  let priv = dbConfPriv conf
-  assocCollectionP priv myUsersCollection db
+projectsCollection :: TCBPriv -> DC (Collection DCLabel)
+projectsCollection p = collectionP p "projects" lpub colClearance $
+  RawPolicy labelForProject
+            [("name", SearchableField)]
+
+gitstar :: DC GitstarPolicy
+gitstar = mkPolicy
+
+data GitstarPolicy = GitstarPolicy TCBPriv (Database DCLabel)
+  deriving (Typeable)
+
+instance DatabasePolicy GitstarPolicy where
+  createDatabasePolicy conf priv = do
+    db <- labelDatabase conf lcollections lpub
+    myProjectsCollection <- projectsCollection priv
+    res <- assocCollectionP priv myProjectsCollection db
+    return $ GitstarPolicy priv res
+
+  policyDB (GitstarPolicy _ db) = db
 

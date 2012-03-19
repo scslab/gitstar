@@ -20,9 +20,12 @@ application content = docTypeHtml $ do
     stylesheet "/css/bootstrap.css"
     stylesheet "/css/application.css"
     body $ do
-     div ! class_ "navbar" $ do
+     div ! class_ "navbar navbar-fixed-top" $ do
        div ! class_ "navbar-inner" $ do
          div ! class_ "container" $ do
            h1 $ a ! href "/" ! class_ "brand" $ "Gitstar"
+           ul ! class_ "nav pull-right" $ do
+            li $ a ! href "/projects/new" $ "New project"
      div ! class_ "container" $ do
        content
+     script ! src "js/bootstrap.min.js" $ ""
