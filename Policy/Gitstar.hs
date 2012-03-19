@@ -3,6 +3,7 @@ module Policy.Gitstar where
 
 import Prelude hiding (lookup)
 
+import Control.Monad (foldM)
 import Data.Typeable
 import Hails.Database
 import Hails.Database.MongoDB
@@ -34,9 +35,22 @@ data GitstarPolicy = GitstarPolicy TCBPriv (Database DCLabel)
 instance DatabasePolicy GitstarPolicy where
   createDatabasePolicy conf priv = do
     db <- labelDatabase conf lcollections lpub
-    myProjectsCollection <- projectsCollection priv
-    res <- assocCollectionP priv myProjectsCollection db
-    return $ GitstarPolicy priv res
+    db' <- foldM (\d col -> do
+              c <- col priv
+              assocCollectionP priv c d) db [ projectsCollection
+                                            , usersCollection
+                                            ]
+    return $ GitstarPolicy priv db'
 
   policyDB (GitstarPolicy _ db) = db
 
+-- | Collection keeping track of user's ssh-keys.
+usersCollection :: TCBPriv -> DC (Collection DCLabel)
+usersCollection p = collectionP p "users" lpub colClearance $
+  RawPolicy userLabel
+            [ ("_id", SearchableField)
+            , ("key",  SearchableField)
+            ]
+   where userLabel doc =
+           let i = {-("_id" `at` doc :: String) .\/.  -}("gitstar" :: String)
+           in  newDC (<>) i
