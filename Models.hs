@@ -17,9 +17,8 @@ class DCRecord a where
   collectionName :: a -> String
   findBy :: (Val DCLabel v, DatabasePolicy p)
          => p -> CollectionName -> Key -> v -> DC (Maybe a)
-  findBy policy colName key val = do
-    priv <- getPrivileges
-    result <- withDB policy $ findOneP priv $ select [key =: val] colName
+  findBy policy colName key val = withPrivileges noPrivs $ do
+    result <- withDB policy $ findOneP noPrivs $ select [key =: val] colName
     case result of
       Right (Just p) -> unlabel p >>= fromDocument >>= (return . Just )
       _ -> return Nothing
