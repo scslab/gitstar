@@ -1,3 +1,4 @@
+{-# LANGUAGE Safe #-}
 module Gitstar where
 
 import Data.Monoid
