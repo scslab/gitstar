@@ -242,7 +242,7 @@ deian = User { userName = "deian"
 debugAddDeian = void . evalDC $ do
   col <- gitstar
   insertRecordP priv col "users" deian
-    where priv = createPrivTCB $ newPriv ("gitstar" :: Principal)
+    where priv = createPrivTCB $ newPriv ("_gitstar" :: Principal)
 --
 --
 --

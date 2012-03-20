@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings, DeriveDataTypeable #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Safe #-}
 module Policy.Gitstar ( gitstar
-                      , gitstarName
                       , GitstarPolicy
                       , UserName, User(..)
                       , ProjectId, Project(..), Public(..)
@@ -17,17 +17,13 @@ import Hails.Database
 import Hails.Database.MongoDB
 import Hails.Database.MongoDB.Structured
 
+import LIO
 import LIO.DCLabel
+import DCLabel.Safe (priv)
 import DCLabel.NanoEDSL
 
+import Data.Int (Int64)
 import qualified Data.ByteString.Char8 as S8
-
-gitstarName :: String
-gitstarName = "gitstar"
-
--- | General collection clerance
-colClearance :: DCLabel
-colClearance = newDC gitstarName (<>)
 
 -- | Policy handler
 gitstar :: DC GitstarPolicy
@@ -45,9 +41,40 @@ instance DatabasePolicy GitstarPolicy where
                                             , usersCollection
                                             ]
     return $ GitstarPolicy priv db'
-      where lcollections = newDC (<>) gitstarName
+      where lcollections = newDC (<>) (owner priv)
 
   policyDB (GitstarPolicy _ db) = db
+
+  policyOwner (GitstarPolicy p _) = principal . owner $ p
+
+instance PrivilegeGrantGate GitstarPolicy Int64 where
+  getPolicyPriv (GitstarPolicy p _) respF = do
+    c  <- genChallenge
+    lr <- respF c
+    r  <- unlabel lr
+    if c /= r 
+      then return noPrivs
+      else analyze . integrity . labelOf $ lr
+        where analyze i = maybe (return noPrivs) f $ extractPrincipal i
+              f app = if app == "gitstar"
+                        then return p
+                        else return noPrivs
+                      
+
+    
+
+-- | Extract the principal of a DCLabel singleton component.
+extractPrincipal :: Component -> Maybe Principal
+extractPrincipal c | c == (><) = Nothing
+                   | otherwise =  case componentToList c of
+                                    [MkDisj [p]] -> Just p
+                                    _ -> Nothing
+
+-- | Get the only principal that owns the privileges.
+-- Note that this will result in an error if the privilege is 
+-- not a list of one principal
+owner :: DCPrivTCB -> String
+owner = S8.unpack . name . fromJust . extractPrincipal . priv
 
 
 --
@@ -93,7 +120,8 @@ usersCollection p = collectionP p "users" lpub colClearance $
             [ ("_id", SearchableField)
             , ("key", SearchableField)
             ]
-   where userLabel u = newDC (<>) ((userName u) .\/. gitstarName)
+   where userLabel u = newDC (<>) ((userName u) .\/. (owner p))
+         colClearance = newDC (owner p) (<>)
 
 --
 -- Projects model
@@ -119,20 +147,21 @@ projectsCollection p = collectionP p "projects" lpub colClearance $
             , ("name",  SearchableField)
             , ("owner", SearchableField)
             ]
-    where labelForProject proj = 
+    where colClearance = newDC (owner p) (<>)
+          labelForProject proj = 
             let collabs = projectCollaborators proj
                 r = case projectReaders proj of
                       Left Public -> (<>)
                       Right rs -> listToComponent [listToDisj $ rs ++ collabs]
-            in newDC (r .\/. gitstarName)
-                     ((projectOwner proj) .\/.  gitstarName)
+            in newDC (r .\/. owner p)
+                     ((projectOwner proj) .\/.  owner p)
 
 -- | Data type denoting public projects
 data Public = Public
   deriving (Show, Read)
 
 -- | Project id is simply an object id
-type ProjectId = ObjectId
+type ProjectId = Maybe ObjectId
 
 -- | A data type describing a project
 data Project = Project {
@@ -153,7 +182,6 @@ data Project = Project {
 
 instance DCRecord Project where
   fromDocument doc = do
-    pId    <- lookup (u "_id") doc
     pName  <- lookup (u "name") doc
     pOwner <- lookup (u "owner") doc
     pDesc  <- lookup (u "description") doc
@@ -161,7 +189,7 @@ instance DCRecord Project where
     pRedrs <- lookup (u "readers") doc
 
     return $ Project
-      { projectId            = pId   
+      { projectId            = lookup (u "_id") doc
       , projectName          = pName 
       , projectOwner         = pOwner
       , projectDescription   = pDesc 
@@ -169,8 +197,9 @@ instance DCRecord Project where
       , projectReaders       = readersDoc2Either pRedrs }
 
   toDocument proj =
-    [ (u "_id")           =: projectId proj
-    , (u "name")          =: projectName proj
+    (maybe [] (\i -> [(u "_id") =: i]) $ projectId proj)
+    ++
+    [ (u "name")          =: projectName proj
     , (u "owner")         =: projectOwner proj
     , (u "description")   =: projectDescription proj
     , (u "collaborators") =: projectCollaborators proj
@@ -192,7 +221,7 @@ readersEither2Doc = UserDefined . S8.pack . show
 
 --
 -- Misc
--- 
+--
 
 maybeRead :: Read a => String -> Maybe a
 maybeRead = fmap fst . listToMaybe . reads
