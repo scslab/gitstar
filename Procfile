@@ -1,1 +1,2 @@
-server: ./SSHServer
+web: hails
+server: runghc SSHServer
