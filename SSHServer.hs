@@ -23,6 +23,7 @@ import System.IO
 import Policy.Gitstar (gitstar)
 import Models
 import Hails.Data.LBson (Binary(..))
+import Hails.Database.MongoDB.Structured
 
 import qualified LIO as LIO
 import LIO.DCLabel
@@ -37,7 +38,7 @@ main = do
     port    <- read `liftM` getEnv "GITSTAR_SSH_PORT" :: IO Int
     keyPath <- getEnv "GITSTAR_SSH_KEY"
     hPutStrLn stderr $ "Starting ssh server on port "++ show port  ++
-                       "with key" ++ show keyPath ++ " ..."
+                       " with key " ++ keyPath ++ " ..."
     kp <- rsaKeyPairFromFile keyPath
     --debugAddDeian 
     startSSH kp (fromIntegral port)
@@ -50,12 +51,16 @@ main = do
 
 -- | Authentitcate a user.
 sshAuthorize :: Authorize -> Session Bool
-sshAuthorize (PublicKey name key) = do
-  muser <- liftIO $ lookupUserKey key
-  let msg = maybe "FAIL!" (const "OK!") muser
-  liftIO . (hPutStrLn stderr) $ "Authorizing " ++ name ++ "..." ++ msg
+sshAuthorize (PublicKey name key) = liftIO $ do
+  muser <- lookupUserKey key
+  case muser of
+    Nothing -> do putStrLn "Authentication failed."
+                  return False
+    Just u -> do putStrLn $ "Authenticated "++ userName u ++ "!"
+                 return True
   return $ maybe False (const True) muser
-sshAuthorize _ = False
+sshAuthorize _ = do liftIO $ putStrLn "Expected public-key authentication."
+                    return False
 
 -- | Find a user based on their public key
 lookupUserKey :: PublicKey -> IO (Maybe User)
@@ -66,7 +71,14 @@ lookupUserKey key = evalDC_ $ do
 
 
 channelRequest :: Bool -> ChannelRequest -> Channel ()
-channelRequest _ _ = return ()
+channelRequest wr req@(Execute cmd) = do
+  liftIO $ print req
+channelRequest wr (Environment "LANG" _) = when wr channelSuccess
+channelRequest wr r = do
+  channelError $ "Unknown request: "++ show r ++ "\r\n" ++
+                 "This server only accepts EXEC requests."
+  when wr channelFail
+
 -- channelRequest :: Bool -> ChannelRequest -> Channel ()
 -- channelRequest wr (Execute cmd) =
 --     case words cmd of
@@ -224,7 +236,8 @@ decodeKey (Binary bs) = blobToKey . lazyfy . B64.decodeLenient $ bs
 
 deian = User { userName = "deian"
              , userKey  = Binary $ S8.pack "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCpuGHHMpAr3EP67oz2YcDNWqX0h3QxEnaB8Pi0rAA+GkaPv3orufqeF6/YqyP2pIlA1sGn8eAQMKMJ8QmfnmbQ6+eDva2okwJwxJJcsQK8YQM6kyk9icvmrbXrzYGgJpcquGIFGd02my7Djxi3BXooTeTwqPhnYvCJeoO1izTOuMJoP0hRntvyDPK43vUiWwbF0N8rL9lPLOOwCd8Qdh9ks+z0WRQR/qD2/RoHB4Kx3Pi06HA5M9LnhFIapKkERNmbov+JWQ5ecT/FKdYd5xA4I4lN/1DegWQVQ2sEjEbAWl05m68Va3VauQCyWolC7ticnUd+HbmOzgo3hmN52Wax"
-                }
+             , userProjects = []
+             }
 
 debugAddDeian = void . evalDC $ do
   col <- gitstar

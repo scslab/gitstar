@@ -1,1 +1,1 @@
-server: hails
+server: ./SSHServer
