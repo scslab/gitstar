@@ -22,7 +22,7 @@ import Data.IterIO.Http
 import Data.IterIO.Http.Support
 
 import Hails.Data.LBson (cast', ObjectId)
-import Hails.Database.MongoDB (getPolicyPriv)
+import Hails.Database.MongoDB (getGrantGate)
 
 import Control.Monad (liftM)
 
@@ -107,7 +107,12 @@ fromCSList = map (strip . L8.unpack) . L8.split ',' . paramValue
   where strip = filter (not . isSpace)
 
 doGetPolicyPriv policy = do
-  appName <- fromJust `liftM` requestHeader "x-hails-app"
-  curL <- liftLIO $ getLabel
-  let l = newDC (secrecy curL) (principal appName)
-  liftLIO $ getPolicyPriv policy (label l)
+  app  <- (principal . fromJust) `liftM` requestHeader "x-hails-app"
+  liftLIO $ do gate <- getGrantGate policy app
+               p <- getPrivileges
+               raiseClearance p app
+               callGate gate p
+    where raiseClearance p app = do
+            c <- getClearance
+            let c' = newDC app (integrity c)
+            lowerClrP p (c `lub` c')

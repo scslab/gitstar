@@ -22,7 +22,6 @@ import LIO.DCLabel
 import DCLabel.Safe (priv)
 import DCLabel.NanoEDSL
 
-import Data.Int (Int64)
 import qualified Data.ByteString.Char8 as S8
 
 -- | Policy handler
@@ -47,18 +46,14 @@ instance DatabasePolicy GitstarPolicy where
 
   policyOwner (GitstarPolicy p _) = principal . owner $ p
 
-instance PrivilegeGrantGate GitstarPolicy Int64 where
-  getPolicyPriv (GitstarPolicy p _) respF = do
-    c  <- genChallenge
-    lr <- respF c
-    r  <- unlabel lr
-    if c /= r 
-      then return noPrivs
-      else analyze . integrity . labelOf $ lr
-        where analyze i = maybe (return noPrivs) f $ extractPrincipal i
-              f app = if app == "gitstar"
-                        then return p
-                        else return noPrivs
+instance PrivilegeGrantGate GitstarPolicy where
+  getGrantGate policy@(GitstarPolicy p _) app = getLabel >>= \curL ->
+     let l = newDC (secrecy curL) (policyOwner policy)
+     in mkGateP p l analyze
+        where analyze desc =
+                if app == "gitstar" && desc `canDelegate` newPriv app
+                  then p
+                  else noPrivs
                       
 
     
