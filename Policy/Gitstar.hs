@@ -47,7 +47,7 @@ instance DatabasePolicy GitstarPolicy where
   policyOwner (GitstarPolicy p _) = principal . owner $ p
 
 instance PrivilegeGrantGate GitstarPolicy where
-  getGrantGate policy@(GitstarPolicy p _) app = getLabel >>= \curL ->
+  grantPriv policy@(GitstarPolicy p _) app = getLabel >>= \curL ->
      let l = newDC (secrecy curL) (policyOwner policy)
      in mkGateP p l analyze
         where analyze desc =
