@@ -6,8 +6,8 @@ import Hails.App
 import Controllers
 
 server :: AppReqHandler
-server = do
-  runLHttpRoute $ mconcat 
+server = runLHttpRoute $ mconcat 
     [ routeRestController "projects" ProjectsController
+    , routeRestController "users"    UsersController
     , routeFileSys systemMimeMap (dirRedir "index.html") "static"
     ]

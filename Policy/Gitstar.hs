@@ -158,11 +158,14 @@ data Public = Public
 -- | Project id is simply an object id
 type ProjectId = Maybe ObjectId
 
+-- | Project name is simply a stirng
+type ProjectName = String
+
 -- | A data type describing a project
 data Project = Project {
     projectId            :: ProjectId
     -- ^ Project id
-  , projectName          :: String
+  , projectName          :: ProjectName
     -- ^ Project name
   , projectOwner         :: UserName
     -- ^ Project owner
