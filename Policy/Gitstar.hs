@@ -1,26 +1,26 @@
 {-# LANGUAGE OverloadedStrings, DeriveDataTypeable #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiParamTypeClasses, IncoherentInstances #-}
 {-# LANGUAGE Safe #-}
 module Policy.Gitstar ( gitstar
                       , GitstarPolicy
-                      , UserName, User(..)
+                      , UserName, User(..), SSHKey(..)
                       , ProjectId, Project(..), Public(..)
                       ) where
 
 import Prelude hiding (lookup)
 
 import Control.Monad (foldM)
+
 import Data.Maybe (listToMaybe, fromJust)
 import Data.Typeable
+import Hails.Data.LBson hiding (map)
 
 import Hails.Database
-import Hails.Database.MongoDB
+import Hails.Database.MongoDB hiding (map)
 import Hails.Database.MongoDB.Structured
 
 import LIO
 import LIO.DCLabel
-import DCLabel.Safe (priv)
-import DCLabel.NanoEDSL
 
 import qualified Data.ByteString.Char8 as S8
 
@@ -32,15 +32,15 @@ data GitstarPolicy = GitstarPolicy TCBPriv (Database DCLabel)
   deriving (Typeable)
 
 instance DatabasePolicy GitstarPolicy where
-  createDatabasePolicy conf priv = do
+  createDatabasePolicy conf p = do
     db <- labelDatabase conf lcollections lpub
     db' <- foldM (\d col -> do
-              c <- col priv
-              assocCollectionP priv c d) db [ projectsCollection
-                                            , usersCollection
-                                            ]
-    return $ GitstarPolicy priv db'
-      where lcollections = newDC (<>) (owner priv)
+              c <- col p
+              assocCollectionP p c d) db [ projectsCollection
+                                         , usersCollection
+                                         ]
+    return $ GitstarPolicy p db'
+      where lcollections = newDC (<>) (owner p)
 
   policyDB (GitstarPolicy _ db) = db
 
@@ -79,26 +79,50 @@ owner = S8.unpack . name . fromJust . extractPrincipal . priv
 -- | User name is simply  a stirng
 type UserName = String
 
+-- | An SSH key has a name and key value
+data SSHKey = SSHKey { sshKeyId    :: ObjectId -- ^ ID
+                     , sshKeyTitle :: !String  -- ^ Name
+                     , sshKeyValue :: !Binary  -- ^ Actual key
+                     } deriving (Show, Eq)
+
 -- | Data type describing users
 data User = User { userName     :: UserName    -- ^ User name
-                 , userKey      :: Binary      -- ^ User's ssh key
+                 , userKeys     :: [SSHKey]    -- ^ User's ssh keys
                  , userProjects :: [ProjectId] -- ^ User's projects
                  } deriving (Show, Eq)
 
 instance DCRecord User where
   fromDocument doc = do
-    name <- lookup (u "_id") doc
-    key  <- lookup (u "key") doc
-    prjs <- lookup (u "projects") doc
-    return $ User { userName      = name
-                  , userKey       = key
-                  , userProjects  = prjs }
+    uName   <- lookup (u "_id") doc
+    keyDocs <- lookup (u "keys") doc
+    keys <- case mapM safeFromBsonDoc keyDocs of
+               Nothing -> fail "fromDocument: safeFromBsonDoc failed"
+               Just ks -> mapM docToSshKey ks
+    uPrjs <- lookup (u "projects") doc
+    return $ User { userName      = uName
+                  , userKeys      = keys
+                  , userProjects  = uPrjs }
+      where docToSshKey :: Monad m => Document DCLabel -> m SSHKey
+            docToSshKey doc = do
+              i <- lookup (u "_id") doc
+              t <- lookup (u "title") doc
+              v <- lookup (u "value")  doc
+              return $ SSHKey { sshKeyId    = i
+                              , sshKeyTitle = t
+                              , sshKeyValue = v }
 
   toDocument usr = [ (u "_id")      =: userName usr
-                   , (u "key")      =: userKey usr
+                   , (u "keys")     =: (map sshKeyToDoc $ userKeys usr)
                    , (u "projects") =: userProjects usr ]
+    where sshKeyToDoc :: SSHKey -> BsonDocument
+          sshKeyToDoc k = fromJust $
+            safeToBsonDoc ([ (u "_id")   =: sshKeyId k
+                           , (u "title") =: sshKeyTitle k
+                           , (u "value") =: sshKeyValue k ] :: Document DCLabel)
 
   collectionName _ = "users"
+
+
 
 
 
@@ -115,7 +139,7 @@ usersCollection p = collectionP p "users" lpub colClearance $
             [ ("_id", SearchableField)
             , ("key", SearchableField)
             ]
-   where userLabel u = newDC (<>) ((userName u) .\/. (owner p))
+   where userLabel usr = newDC (<>) ((userName usr) .\/. (owner p))
          colClearance = newDC (owner p) (<>)
 
 --
@@ -192,7 +216,7 @@ instance DCRecord Project where
       , projectOwner         = pOwner
       , projectDescription   = pDesc 
       , projectCollaborators = pColls
-      , projectReaders       = readersDoc2Either pRedrs }
+      , projectReaders       = readersDocToEither pRedrs }
 
   toDocument proj =
     (maybe [] (\i -> [(u "_id") =: i]) $ projectId proj)
@@ -201,20 +225,20 @@ instance DCRecord Project where
     , (u "owner")         =: projectOwner proj
     , (u "description")   =: projectDescription proj
     , (u "collaborators") =: projectCollaborators proj
-    , (u "readers")       =: readersEither2Doc (projectReaders proj) ]
+    , (u "readers")       =: readersEitherToDoc (projectReaders proj) ]
 
   collectionName _ = "projects"
 
 -- | Convert document to either.
-readersDoc2Either :: UserDefined -> Either Public [UserName]
-readersDoc2Either (UserDefined bs) = 
+readersDocToEither :: UserDefined -> Either Public [UserName]
+readersDocToEither (UserDefined bs) = 
   case maybeRead . S8.unpack $ bs of
-    Nothing -> error "readersDoc2Either: failed to parse"
+    Nothing -> error "readersDocToEither: failed to parse"
     Just e  -> e
 
 -- | Convert either to document.
-readersEither2Doc :: Either Public [UserName] -> UserDefined
-readersEither2Doc = UserDefined . S8.pack . show
+readersEitherToDoc :: Either Public [UserName] -> UserDefined
+readersEitherToDoc = UserDefined . S8.pack . show
 
 
 --

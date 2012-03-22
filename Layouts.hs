@@ -27,6 +27,7 @@ application content = docTypeHtml $ do
            h1 $ a ! href "/" ! class_ "brand" $ "Gitstar"
            ul ! class_ "nav pull-right" $ do
             li $ a ! href "/projects/new" $ "New project"
+            li $ a ! href "/users/new" $ "New key"
      div ! class_ "container" $ do
        content
      script ! src "js/bootstrap.min.js" $ ""

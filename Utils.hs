@@ -4,7 +4,7 @@ module Utils where
 
 import qualified Data.ByteString.Lazy.Char8 as L8
 import Data.Char (isSpace)
-import Data.Maybe (fromJust)
+import Data.Maybe (listToMaybe, fromJust)
 
 import Data.IterIO.Http.Support
 import Hails.Database.MongoDB (grantPriv)
@@ -27,3 +27,6 @@ doGetPolicyPriv policy = do
   liftLIO $ do gate <- grantPriv policy app
                p <- getPrivileges
                callGate gate p
+
+maybeRead :: Read a => String -> Maybe a
+maybeRead = fmap fst . listToMaybe . reads

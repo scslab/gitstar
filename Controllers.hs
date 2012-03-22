@@ -1,7 +1,9 @@
 {-# LANGUAGE Safe #-}
 
 module Controllers ( ProjectsController(..)
-                   , UsersController(..) 
+                   --, UsersController(..) 
+                   , userShowController
+                   , newUserKeyController 
                    ) where
 
 import Controllers.Projects
