@@ -63,7 +63,7 @@ instance RestController DC ProjectsController where
                                                         else Right pRedrs
                        } 
     privs <- doGetPolicyPriv policy
-    erf <- liftLIO $ insertRecordP privs policy "projects" proj
+    erf <- liftLIO $ insertRecordP privs policy proj
     case erf of
       Right r -> redirectTo $ case cast' r of
         Just oid -> "/projects/" ++ show (oid :: ObjectId)
@@ -86,7 +86,7 @@ instance RestController DC ProjectsController where
                                                               else Right pRedrs
                              }
         privs <- doGetPolicyPriv policy
-        erf <- liftLIO $ saveRecordP privs policy "projects" projFinal
+        erf <- liftLIO $ saveRecordP privs policy projFinal
         case erf of
           Right _ -> redirectTo $ "/projects/" ++ (show . projectObjId $ projFinal)
           _      -> respondStat stat500

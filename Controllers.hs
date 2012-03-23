@@ -2,8 +2,7 @@
 
 module Controllers ( ProjectsController(..)
                    --, UsersController(..) 
-                   , userShowController
-                   , newUserKeyController 
+                   , KeysController(..)
                    ) where
 
 import Controllers.Projects

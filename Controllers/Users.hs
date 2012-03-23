@@ -3,9 +3,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Controllers.Users (-- UsersController(..)
-                           userShowController
-                         , newUserKeyController
+module Controllers.Users (KeysController(..)
                          ) where
 
 import Control.Monad
@@ -13,13 +11,13 @@ import Control.Monad
 import Models
 import Layouts
 import Utils
-import Policy.Gitstar (gitstar)
+import Policy.Gitstar
 import Views.Users
 
 import LIO
 import LIO.DCLabel
 
-import Data.Maybe (catMaybes, fromJust)
+import Data.Maybe (catMaybes, fromJust, fromMaybe)
 import Data.IterIO.Http
 import Data.IterIO.Http.Support
 import qualified Data.ByteString.Char8 as S8
@@ -29,17 +27,6 @@ import Hails.Data.LBson (Binary(..), genObjectId,genObjectId)
 
 -- | Usercontroller
 data UsersController = UsersController
-
-userShowController :: Action t DC ()
-userShowController = do
-  uid <- getParamVal "uid"
-  policy <- liftLIO gitstar
-  muser  <- liftLIO $ findBy policy "users" "_id" uid
-  case muser of
-    Nothing -> respondStat stat500
-    Just u  -> do mps <- liftLIO $ forM (userProjects u) $ \pid ->
-                           findBy policy "projects" "_id" pid
-                  renderHtml $ showUser u (catMaybes mps)
 
 {-
   restEdit _ uid = do
@@ -94,11 +81,28 @@ userShowController = do
                     Right u -> redirectTo $ "/users/" ++ show u
                     _       -> respondStat stat500
                     -}
-newUserKeyController :: Action t DC ()
-newUserKeyController = do
-  uName <- (S8.unpack . fromJust) `liftM` requestHeader "x-hails-user"
-  kid <- getParamVal "kid"
-  oid <- liftIO $ genObjectId
-  renderHtml $ newUserKey uName oid
-  --maybe (respondStat stat500) (renderHtml . newUserKey uName ) (maybeRead kid)
-  --maybe (respondStat stat500) (renderHtml . newUserKey uName ) (maybeRead kid)
+data KeysController = KeysController
+
+instance RestController DC KeysController where
+  restIndex _ = do
+    uName <- (S8.unpack . fromJust) `liftM` requestHeader "x-hails-user"
+    keys <- liftLIO $ fmap userKeys $ getOrCreateUser uName
+    renderHtml $ keysIndex keys
+
+  restNew _ = do
+    renderHtml $ newUserKey
+
+  restCreate _ = do
+    uName <- (S8.unpack . fromJust) `liftM` requestHeader "x-hails-user"
+    user <- liftLIO $ getOrCreateUser uName
+    keyTitle <- param "ssh_key_title" >>= return . fmap paramValue >>= return . fromMaybe ""
+    keyValue <- param "ssh_key_value" >>= return . fmap paramValue >>= return . fromMaybe ""
+    let key = SSHKey { sshKeyTitle = L8.unpack keyTitle
+                     , sshKeyValue = Binary $ S8.pack $ L8.unpack keyValue}
+    -- TODO: validate key title/value aren't empty
+    let resultUser = user { userKeys = key:(userKeys user) }
+    policy <- liftLIO gitstar
+    privs <- doGetPolicyPriv policy
+    liftIO $ saveRecordP privs policy resultUser
+    redirectTo "/keys"
+

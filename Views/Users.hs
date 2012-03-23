@@ -2,8 +2,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Views.Users ( showUser
---                   , editUserKey
                    , newUserKey
+                   , keysIndex
                    ) where
 
 import Prelude hiding (div)
@@ -25,47 +25,42 @@ showUser user projs = do
         li $ a ! href (toValue $ "/projects/" ++ show (projectObjId proj)) $
                       toHtml (projectName proj)
   h2 "SSH Keys"
-  forM_ (userKeys user) $ \k -> do
-    h3 $ toHtml (sshKeyTitle k)
-    p $ a ! href (toValue $ "/users/" ++ userName user ++ "/keys/"
-                                      ++ show (sshKeyId k)) $ "edit"
-    p ! class_ "well" $ toHtml $ showKeyVal (sshKeyValue k)
+  ul $ forM_ (userKeys user) $ \k -> do
+    li ! class_ "well" $ do
+      toHtml (sshKeyTitle k)
+      toHtml $ showKeyVal (sshKeyValue k)
 
-formUserKey :: UserName -> ObjectId -> Maybe SSHKey -> Html
-formUserKey uName kid mkey = 
-  form ! action act ! method "POST" $ do
-    div $ do
-      label "User name"
-      input ! type_ "text" ! disabled "true" ! value (toValue uName)
-    div $ do
-      label "Key ID"
-      input ! type_ "text" ! disabled "true" ! value (toValue (show kid))
+formUserKey :: Html
+formUserKey = 
+  form ! action "/keys" ! method "POST" $ do
     div $ do
       label "Key title"
       input ! type_ "text" ! name "ssh_key_title"
-            ! value (toValue keyName)
     div $ do
       label "Key"
-      textarea ! name "ssh_key_value" $ toHtml keyVal
+      textarea ! name "ssh_key_value" $ ""
     div $ button ! type_ "submit" $ "Add key"
-      where act = toValue $ "/users/" ++ uName
-            (keyName, keyVal) = case mkey of
-              Just k -> (sshKeyTitle k, showKeyVal . sshKeyValue $ k) 
-              _ -> ("","")
 
-{-
-editUserKey :: UserName -> SSHKey -> Html
-editUserKey uName k = do
-  h1 $ toHtml uName
-  p $ a ! href (toValue $ "/users/" ++ uName) $ "view"
-  formUserKey uName (Just k)
-  -}
 
-newUserKey :: UserName -> ObjectId -> Html
-newUserKey uName kid = do
+keysIndex :: [SSHKey] -> Html
+keysIndex keys = do
+  h1 "SSH Keys"
+  table ! class_ "table table-striped table-bordered" $ do
+    tr $ do
+      th "Title"
+      th "Fingerprint"
+    forM_ keys $ \k -> do
+      tr $ do
+        td $ toHtml (sshKeyTitle k)
+        td $ toHtml $ showKeyVal (sshKeyValue k)
+
+newUserKey :: Html
+newUserKey = do
   h1 "Register new key"
-  formUserKey uName kid Nothing
+  formUserKey
 
 -- | Show a Binary value
 showKeyVal :: Binary -> String
-showKeyVal (Binary bs) = S8.unpack bs 
+showKeyVal (Binary bs) =
+  let strVal = S8.unpack bs
+  in take 30 strVal

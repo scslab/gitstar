@@ -4,6 +4,7 @@
 module Policy.Gitstar ( gitstar
                       , GitstarPolicy
                       , UserName, User(..), SSHKey(..)
+                      , getOrCreateUser
                       , ProjectId, Project(..), Public(..)
                       ) where
 
@@ -80,8 +81,7 @@ owner = S8.unpack . name . fromJust . extractPrincipal . priv
 type UserName = String
 
 -- | An SSH key has a name and key value
-data SSHKey = SSHKey { sshKeyId    :: ObjectId -- ^ ID
-                     , sshKeyTitle :: !String  -- ^ Name
+data SSHKey = SSHKey { sshKeyTitle :: !String  -- ^ Name
                      , sshKeyValue :: !Binary  -- ^ Actual key
                      } deriving (Show, Eq)
 
@@ -104,11 +104,9 @@ instance DCRecord User where
                   , userProjects  = uPrjs }
       where docToSshKey :: Monad m => Document DCLabel -> m SSHKey
             docToSshKey doc = do
-              i <- lookup (u "_id") doc
               t <- lookup (u "title") doc
               v <- lookup (u "value")  doc
-              return $ SSHKey { sshKeyId    = i
-                              , sshKeyTitle = t
+              return $ SSHKey { sshKeyTitle = t
                               , sshKeyValue = v }
 
   toDocument usr = [ (u "_id")      =: userName usr
@@ -116,15 +114,28 @@ instance DCRecord User where
                    , (u "projects") =: userProjects usr ]
     where sshKeyToDoc :: SSHKey -> BsonDocument
           sshKeyToDoc k = fromJust $
-            safeToBsonDoc ([ (u "_id")   =: sshKeyId k
-                           , (u "title") =: sshKeyTitle k
+            safeToBsonDoc ([ (u "title") =: sshKeyTitle k
                            , (u "value") =: sshKeyValue k ] :: Document DCLabel)
 
   collectionName _ = "users"
 
 
-
-
+getOrCreateUser :: UserName -> DC User
+getOrCreateUser username = do
+  gsPolicy@(GitstarPolicy priv _) <- gitstar
+  resM <- findBy gsPolicy  "users" "_id" username
+  case resM of
+    Just user -> return user
+    Nothing -> do
+      let user = User {
+                        userName = username
+                      , userKeys = []
+                      , userProjects = []
+                      }
+      res <- insertRecordP priv gsPolicy user
+      case res of
+        Right _ -> return user
+        Left _ -> fail "Failed to create user"
 
 -- | Collection keeping track of users
 -- /Security properties:/
