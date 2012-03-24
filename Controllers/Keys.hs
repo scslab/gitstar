@@ -19,10 +19,12 @@ import LIO.DCLabel
 import Data.Maybe (catMaybes, fromJust, fromMaybe)
 import Data.IterIO.Http
 import Data.IterIO.Http.Support
+import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as S8
+import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Lazy.Char8 as L8
 
-import Hails.Data.LBson (Binary(..), genObjectId,genObjectId)
+import Hails.Data.LBson hiding (map)
 
 data KeysController = KeysController
 
@@ -33,41 +35,42 @@ contentType = do
 
 listKeys :: Action t DC  ()
 listKeys = do
-    (Just uName) <- param "user_name" >>= return . (fmap (L8.unpack . paramValue))
-    keys <- liftLIO $ fmap userKeys $ getOrCreateUser uName
-    ctype <- contentType
-    case ctype of
-      "application/json" -> render "application/json" $ L8.pack $ keysToJson keys
-      _ -> renderHtml $ keysIndex keys
-    where keysToJson ks = "[" ++ (joinS $ map (unbin . sshKeyValue) ks) ++ "]"
-          unbin (Binary bs) = S8.unpack bs
-          joinS [] = ""
-          joinS (x:[]) = show x
-          joinS (x:xs) = (show x) ++ "," ++ (joinS xs)
+  uName <- getParamVal "user_name"
+  doListKeys uName
+
+doListKeys :: UserName -> Action t DC  ()
+doListKeys uName = do
+  keys <- liftLIO $ fmap userKeys $ getOrCreateUser uName
+  atype <- requestHeader "accept"
+  case atype of
+    Just "application/bson" ->
+      render "application/bson" $ encodeDoc $ mkDoc keys
+    _ -> renderHtml $ keysIndex keys
+    where convert = fromJust . safeToBsonDoc . toDocument 
+          mkDoc ks = fromJust . safeToBsonDoc $
+                      (["keys" =: map convert ks] :: Document DCLabel)
 
 instance RestController DC KeysController where
   restIndex _ = do
-    uName <- (S8.unpack . fromJust) `liftM` requestHeader "x-hails-user"
-    keys <- liftLIO $ fmap userKeys $ getOrCreateUser uName
-    ctype <- contentType
-    case ctype of
-      "application/json" -> render "application/json" $ "[]"
-      _ -> renderHtml $ keysIndex keys
+    uName <- getHailsUser
+    doListKeys uName
 
-  restNew _ = do
-    renderHtml $ newUserKey
+  restNew _ = renderHtml newUserKey
 
   restCreate _ = do
-    uName <- (S8.unpack . fromJust) `liftM` requestHeader "x-hails-user"
+    -- TODO: remove host if present @ end of key
+    uName <- getHailsUser
     user <- liftLIO $ getOrCreateUser uName
-    keyTitle <- param "ssh_key_title" >>= return . fmap paramValue >>= return . fromMaybe ""
-    keyValue <- param "ssh_key_value" >>= return . fmap paramValue >>= return . fromMaybe ""
-    let key = SSHKey { sshKeyTitle = L8.unpack keyTitle
-                     , sshKeyValue = Binary $ S8.pack $ L8.unpack keyValue}
-    -- TODO: validate key title/value aren't empty
-    let resultUser = user { userKeys = key:(userKeys user) }
+    keyTitle <- getParamVal "ssh_key_title"
+    keyValue <- (paramValue . fromJust) `liftM` param "ssh_key_value"
+    nId <- liftLIO $ genObjectId
+    let key = SSHKey { sshKeyId = nId
+                     , sshKeyTitle = keyTitle
+                     , sshKeyValue = Binary $ strictify keyValue}
+    let resultUser = user { userKeys = key : userKeys user }
     policy <- liftLIO gitstar
     privs <- doGetPolicyPriv policy
     liftIO $ saveRecordP privs policy resultUser
     redirectTo "/keys"
+      where strictify = S.concat . L.toChunks
 

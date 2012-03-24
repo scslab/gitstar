@@ -30,18 +30,22 @@ keysIndex keys = do
   div ! class_ "row" $ do
     div ! class_ "span8" $ h1 "SSH Keys"
     div ! class_ "span1 offset3" $ do
-      a ! href "#" ! class_ "btn" $ do
+      a ! href "/keys/new" ! class_ "btn" $ do
         "New "
         span ! class_ "icon-plus" $ ""
-  table ! class_ "table table-striped table-bordered" $ do
+  table ! class_ "table table-striped" $ do
     tr $ do
       th "Title"
       th "Fingerprint"
+      th ""
     forM_ keys $ \k -> do
       tr $ do
         td $ toHtml (sshKeyTitle k)
         td $ toHtml $ showKeyVal (sshKeyValue k)
-
+        --TODO: implement delete
+        td $ a ! href (toValue $ "/keys/"++ show (sshKeyId k) ++ "/delete") $ do
+             span ! class_ "icon-trash" $ ""
+             "Remove"
 newUserKey :: Html
 newUserKey = do
   h1 "Register new key"
