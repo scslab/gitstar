@@ -22,7 +22,7 @@ showUser user projs = do
   unless (null projs) $ do
     h2 "Projects"
     ul $ forM_ projs $ \proj ->
-        li $ a ! href (toValue $ "/projects/" ++ show (projectObjId proj)) $
+        li $ a ! href (toValue $ "/" ++ (userName user) ++ "/" ++ (projectName proj)) $
                       toHtml (projectName proj)
 
 formUserKey :: Html

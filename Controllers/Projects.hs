@@ -15,6 +15,8 @@ import Views.Projects
 import LIO
 import LIO.DCLabel
 
+import Hails.Database.MongoDB (select, (=:))
+
 import Data.Maybe (fromJust)
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy.Char8 as L8
@@ -28,10 +30,12 @@ import Control.Monad (liftM)
 data ProjectsController = ProjectsController
 
 instance RestController DC ProjectsController where
-  restShow _ pid = do
+  restShow _ projectName = do
     policy <- liftLIO gitstar
-    let oid = read (L8.unpack pid) :: ObjectId
-    projM <- liftLIO $ findBy policy "projects" "_id" oid
+    (Just uName) <- param "user_name"
+    projM <- liftLIO $ findWhere policy $ select [ "name" =: L8.unpack projectName
+                                                 , "owner" =: (L8.unpack $ paramValue uName)]
+                                                 "projects"
     case projM of
       Just proj -> renderHtml $ showProject proj
       Nothing   -> respond404
