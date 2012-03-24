@@ -2,6 +2,7 @@
 
 module Utils where
 
+import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy.Char8 as L8
 import Data.Char (isSpace)
 import Data.Maybe (listToMaybe, fromJust)
@@ -15,7 +16,11 @@ import LIO
 import LIO.DCLabel
 
 
+-- | Force get parameter value
 getParamVal n = (L8.unpack . paramValue . fromJust) `liftM` param n
+
+-- | Get (maybe) paramater value and transform it with @f@
+getMParamVal f n = fmap (f . paramValue) `liftM` param n
 
 -- | Convert a Param comma separate value to a list of values
 fromCSList :: Param -> [String]
@@ -30,3 +35,10 @@ doGetPolicyPriv policy = do
 
 maybeRead :: Read a => String -> Maybe a
 maybeRead = fmap fst . listToMaybe . reads
+
+with404orJust mval act = case mval of
+                           Nothing -> respond404
+                           Just val -> act val
+
+getHailsUser :: Monad m => Action t m String
+getHailsUser = (S8.unpack . fromJust) `liftM` requestHeader "x-hails-user"

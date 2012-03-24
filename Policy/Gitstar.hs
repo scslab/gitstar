@@ -77,16 +77,36 @@ owner = S8.unpack . name . fromJust . extractPrincipal . priv
 -- User model
 --
 
+-- | A key id is an object ID
+type KeyId = ObjectId
+
+-- | An SSH key has a name and key value
+data SSHKey = SSHKey { sshKeyId    :: KeyId    -- ^ Key id
+                     , sshKeyTitle :: !String  -- ^ Name
+                     , sshKeyValue :: !Binary  -- ^ Actual key
+                     } deriving (Show, Eq)
+
+instance DCRecord SSHKey where
+  fromDocument doc = do
+    i <- lookup (u "_id") doc
+    t <- lookup (u "title") doc
+    v <- lookup (u "value")  doc
+    return $ SSHKey { sshKeyId = i
+                    , sshKeyTitle = t
+                    , sshKeyValue = v }
+  toDocument k = [ (u "_id")   =: sshKeyId k
+                 , (u "title") =: sshKeyTitle k
+                 , (u "value") =: sshKeyValue k ]
+  collectionName = error "Not insertable"
+
 -- | User name is simply  a stirng
 type UserName = String
 
+-- | Email address of a user
 type Email = String
-type Url = String
 
--- | An SSH key has a name and key value
-data SSHKey = SSHKey { sshKeyTitle :: !String  -- ^ Name
-                     , sshKeyValue :: !Binary  -- ^ Actual key
-                     } deriving (Show, Eq)
+-- | URL
+type Url = String
 
 -- | Data type describing users
 data User = User { userName     :: UserName     -- ^ Username
@@ -104,7 +124,7 @@ instance DCRecord User where
     keyDocs <- lookup (u "keys") doc
     keys <- case mapM safeFromBsonDoc keyDocs of
                Nothing -> fail "fromDocument: safeFromBsonDoc failed"
-               Just ks -> mapM docToSshKey ks
+               Just ks -> mapM fromDocument ks
     uPrjs <- lookup (u "projects") doc
     return $ User { userName      = uName
                   , userKeys      = keys
@@ -113,12 +133,6 @@ instance DCRecord User where
                   , userCity = lookup (u "city") doc
                   , userWebsite = lookup (u "website") doc
                   , userGravatar = lookup (u "gravatar") doc}
-      where docToSshKey :: Monad m => Document DCLabel -> m SSHKey
-            docToSshKey doc = do
-              t <- lookup (u "title") doc
-              v <- lookup (u "value")  doc
-              return $ SSHKey { sshKeyTitle = t
-                              , sshKeyValue = v }
 
   toDocument usr = [ (u "_id")      =: userName usr
                    , (u "keys")     =: (map sshKeyToDoc $ userKeys usr)
@@ -127,14 +141,12 @@ instance DCRecord User where
                    , (u "city") =: userCity usr
                    , (u "website") =: userWebsite usr
                    , (u "gravatar") =: userGravatar usr]
-    where sshKeyToDoc :: SSHKey -> BsonDocument
-          sshKeyToDoc k = fromJust $
-            safeToBsonDoc ([ (u "title") =: sshKeyTitle k
-                           , (u "value") =: sshKeyValue k ] :: Document DCLabel)
-
+    where sshKeyToDoc = (fromJust . safeToBsonDoc . toDocument)
   collectionName _ = "users"
 
 
+-- | If a user exists, retrive the entry from DB, otherwise
+-- create the user.
 getOrCreateUser :: UserName -> DC User
 getOrCreateUser username = do
   gsPolicy@(GitstarPolicy priv _) <- gitstar
