@@ -201,8 +201,8 @@ projectsCollection p = collectionP p "projects" lpub colClearance $
             let collabs = projectCollaborators proj
                 r = case projectReaders proj of
                       Left Public -> (<>)
-                      Right rs -> listToComponent [listToDisj $ rs ++ collabs]
-            in newDC (r .\/. owner p)
+                      Right rs -> listToComponent [listToDisj $ (projectOwner proj):(rs ++ collabs)]
+            in newDC (owner p .\/. r)
                      ((projectOwner proj) .\/.  owner p)
 
 -- | Data type denoting public projects
