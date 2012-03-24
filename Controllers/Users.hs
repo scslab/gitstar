@@ -3,7 +3,9 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Controllers.Users (KeysController(..)
+module Controllers.Users ( KeysController(..)
+                         , listKeys
+                         , userShow
                          ) where
 
 import Control.Monad
@@ -27,6 +29,18 @@ import Hails.Data.LBson (Binary(..), genObjectId,genObjectId)
 
 -- | Usercontroller
 data UsersController = UsersController
+
+userShow :: Action t DC ()
+userShow = do
+  policy <- liftLIO gitstar
+  uName <- param "user_name" >>= \(Just prm) -> return $ paramValue prm
+  muser <- liftLIO $ findBy policy "users" "_id" $ L8.unpack uName
+  case muser of
+    Just user -> do
+      projs <- liftLIO $ mapM (findBy policy "projects" "_id") (userProjects user)
+      let projects = map (fromMaybe undefined) projs
+      renderHtml $ showUser user projects
+    Nothing -> respond404
 
 {-
   restEdit _ uid = do
@@ -81,13 +95,36 @@ data UsersController = UsersController
                     Right u -> redirectTo $ "/users/" ++ show u
                     _       -> respondStat stat500
                     -}
+
 data KeysController = KeysController
+
+contentType :: Monad m => Action t m S8.ByteString
+contentType = do
+  mctype <- requestHeader "accept"
+  return $ fromMaybe "text/plain" mctype
+
+listKeys :: Action t DC  ()
+listKeys = do
+    (Just uName) <- param "user_name" >>= return . (fmap (L8.unpack . paramValue))
+    keys <- liftLIO $ fmap userKeys $ getOrCreateUser uName
+    ctype <- contentType
+    case ctype of
+      "application/json" -> render "application/json" $ L8.pack $ keysToJson keys
+      _ -> renderHtml $ keysIndex keys
+    where keysToJson ks = "[" ++ (joinS $ map (unbin . sshKeyValue) ks) ++ "]"
+          unbin (Binary bs) = S8.unpack bs
+          joinS [] = ""
+          joinS (x:[]) = show x
+          joinS (x:xs) = (show x) ++ "," ++ (joinS xs)
 
 instance RestController DC KeysController where
   restIndex _ = do
     uName <- (S8.unpack . fromJust) `liftM` requestHeader "x-hails-user"
     keys <- liftLIO $ fmap userKeys $ getOrCreateUser uName
-    renderHtml $ keysIndex keys
+    ctype <- contentType
+    case ctype of
+      "application/json" -> render "application/json" $ "[]"
+      _ -> renderHtml $ keysIndex keys
 
   restNew _ = do
     renderHtml $ newUserKey

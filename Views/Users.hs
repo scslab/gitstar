@@ -24,11 +24,6 @@ showUser user projs = do
     ul $ forM_ projs $ \proj ->
         li $ a ! href (toValue $ "/projects/" ++ show (projectObjId proj)) $
                       toHtml (projectName proj)
-  h2 "SSH Keys"
-  ul $ forM_ (userKeys user) $ \k -> do
-    li ! class_ "well" $ do
-      toHtml (sshKeyTitle k)
-      toHtml $ showKeyVal (sshKeyValue k)
 
 formUserKey :: Html
 formUserKey = 

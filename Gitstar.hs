@@ -9,6 +9,8 @@ import Data.IterIO.Http.Support.Action
 server :: AppReqHandler
 server = runLHttpRoute $ mconcat 
     [ routeRestController "projects" ProjectsController
+    , routeActionPattern "/:user_name/keys" $ listKeys
     , routeRestController "keys" KeysController
-    , routeFileSys systemMimeMap (dirRedir "index.html") "static"
+    , routeName "css" $ routeFileSys systemMimeMap (dirRedir "index.html") "static/css"
+    , routeActionPattern "/:user_name" $ userShow
     ]
