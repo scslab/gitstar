@@ -49,10 +49,12 @@ instance RestController DC ProjectsController where
           _ -> renderHtml $ showProject proj
       Nothing   -> respond404
 
-  restEdit _ pid = do
-    let oid = read (L8.unpack pid) :: ObjectId
+  restEdit _ projectName = do
     policy <- liftLIO gitstar
-    projM <- liftLIO $ findBy policy "projects" "_id" oid
+    (Just uName) <- param "user_name"
+    projM <- liftLIO $ findWhere policy $ select [ "name" =: L8.unpack projectName
+                                                 , "owner" =: (L8.unpack $ paramValue uName)]
+                                                 "projects"
     case projM of
       Just proj -> renderHtml $ editProject proj
       Nothing -> respond404
@@ -78,15 +80,15 @@ instance RestController DC ProjectsController where
     privs <- doGetPolicyPriv policy
     erf <- liftLIO $ insertRecordP privs policy proj
     case erf of
-      Right r -> redirectTo $ case cast' r of
-        Just oid -> "/projects/" ++ show (oid :: ObjectId)
-        Nothing  -> "/users/" ++ projectOwner proj ++ "/" ++ projectName proj
+      Right r -> redirectTo $ "/" ++ pOwner ++ "/" ++ pName
       _      -> respondStat stat500
 
-  restUpdate _ pid = do
+  restUpdate _ projName = do
     policy <- liftLIO gitstar
-    let oid = read (L8.unpack pid) :: ObjectId
-    projM <- liftLIO $ findBy policy "projects" "_id" oid
+    uName <- getParamVal "user_name"
+    projM <- liftLIO $ findWhere policy $ select [ "name" =: L8.unpack projName
+                                                 , "owner" =: uName]
+                                                 "projects"
     case projM of
       Just proj -> do
         pPub   <- maybe False (const True) `liftM` param "public"
@@ -101,8 +103,7 @@ instance RestController DC ProjectsController where
         privs <- doGetPolicyPriv policy
         erf <- liftLIO $ saveRecordP privs policy projFinal
         case erf of
-          Right _ -> redirectTo $ "/projects/" ++ (show . projectObjId $ projFinal)
-          _      -> respondStat stat500
-        case erf of
+          Right _ -> redirectTo $ "/" ++ projectOwner projFinal ++ "/" ++ (projectName projFinal)
           _      -> respondStat stat500
       Nothing -> respond404
+
