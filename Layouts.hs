@@ -18,8 +18,8 @@ application :: Html -> Html
 application content = docTypeHtml $ do
   head $ do
     title $ "GitStar - Where loops count"
-    stylesheet "/css/bootstrap.css"
-    stylesheet "/css/application.css"
+    stylesheet "/static/css/bootstrap.css"
+    stylesheet "/static/css/application.css"
     body $ do
      div ! class_ "navbar navbar-fixed-top" $ do
        div ! class_ "navbar-inner" $ do
@@ -30,5 +30,5 @@ application content = docTypeHtml $ do
             li $ a ! href "/keys/new" $ "New key"
      div ! class_ "container" $ do
        content
-     script ! src "/js/bootstrap.min.js" $ ""
+     script ! src "/static/js/bootstrap.min.js" $ ""
 
