@@ -1,6 +1,6 @@
 {-# LANGUAGE Safe #-}
 
-module Models ( UserName, User(..)
+module Models ( UserName, User(..), SSHKey(..)
               , ProjectId, Project(..), Public(..)
               , isPublic
               , projectRepository
@@ -11,7 +11,6 @@ module Models ( UserName, User(..)
 
 import Policy.Gitstar
 import Data.Maybe (fromJust)
-import Data.Either ( either )
 import Hails.Data.LBson (ObjectId)
 import Hails.Database.MongoDB.Structured
 
