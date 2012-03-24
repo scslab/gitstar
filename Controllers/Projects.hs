@@ -85,9 +85,9 @@ instance RestController DC ProjectsController where
 
   restUpdate _ projName = do
     policy <- liftLIO gitstar
-    (Just uName) <- param "user_name"
+    uName <- getParamVal "user_name"
     projM <- liftLIO $ findWhere policy $ select [ "name" =: L8.unpack projName
-                                                 , "owner" =: (L8.unpack $ paramValue uName)]
+                                                 , "owner" =: uName]
                                                  "projects"
     case projM of
       Just proj -> do
