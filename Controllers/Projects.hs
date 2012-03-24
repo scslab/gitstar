@@ -17,17 +17,22 @@ import LIO.DCLabel
 
 import Hails.Database.MongoDB (select, (=:))
 
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, fromMaybe)
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy.Char8 as L8
 import Data.IterIO.Http
 import Data.IterIO.Http.Support
 
-import Hails.Data.LBson (cast', ObjectId)
+import Hails.Data.LBson (cast', ObjectId, encodeDoc)
 
 import Control.Monad (liftM)
 
 data ProjectsController = ProjectsController
+
+contentType :: Monad m => Action t m S8.ByteString
+contentType = do
+  mctype <- requestHeader "accept"
+  return $ fromMaybe "text/plain" mctype
 
 instance RestController DC ProjectsController where
   restShow _ projectName = do
@@ -37,7 +42,11 @@ instance RestController DC ProjectsController where
                                                  , "owner" =: (L8.unpack $ paramValue uName)]
                                                  "projects"
     case projM of
-      Just proj -> renderHtml $ showProject proj
+      Just proj -> do
+        ctype <- contentType
+        case ctype of
+          "application/bson" -> render "application/bson" $ encodeDoc $ toDocument proj
+          _ -> renderHtml $ showProject proj
       Nothing   -> respond404
 
   restEdit _ pid = do
