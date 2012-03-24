@@ -80,8 +80,8 @@ owner = S8.unpack . name . fromJust . extractPrincipal . priv
 -- | User name is simply  a stirng
 type UserName = String
 
--- | Email is simply  a stirng
 type Email = String
+type Url = String
 
 -- | An SSH key has a name and key value
 data SSHKey = SSHKey { sshKeyTitle :: !String  -- ^ Name
@@ -94,6 +94,7 @@ data User = User { userName     :: UserName     -- ^ Username
                  , userProjects :: [ProjectId]  -- ^ User's projects
                  , userFullName :: Maybe String -- ^ User's full name
                  , userCity :: Maybe String     -- ^ User's location
+                 , userWebsite :: Maybe Url     -- ^ User's website
                  , userGravatar :: Maybe Email  -- ^ User's gravatar e-mail
                  } deriving (Show, Eq)
 
@@ -110,6 +111,7 @@ instance DCRecord User where
                   , userProjects  = uPrjs
                   , userFullName = lookup (u "full_name") doc
                   , userCity = lookup (u "city") doc
+                  , userWebsite = lookup (u "website") doc
                   , userGravatar = lookup (u "gravatar") doc}
       where docToSshKey :: Monad m => Document DCLabel -> m SSHKey
             docToSshKey doc = do
@@ -123,7 +125,8 @@ instance DCRecord User where
                    , (u "projects") =: userProjects usr
                    , (u "full_name") =: userFullName usr
                    , (u "city") =: userCity usr
-                   , (u "city") =: userGravatar usr]
+                   , (u "website") =: userWebsite usr
+                   , (u "gravatar") =: userGravatar usr]
     where sshKeyToDoc :: SSHKey -> BsonDocument
           sshKeyToDoc k = fromJust $
             safeToBsonDoc ([ (u "title") =: sshKeyTitle k
@@ -145,6 +148,7 @@ getOrCreateUser username = do
                       , userProjects = []
                       , userFullName = Nothing
                       , userCity = Nothing
+                      , userWebsite = Nothing
                       , userGravatar = Nothing
                       }
       res <- insertRecordP priv gsPolicy user

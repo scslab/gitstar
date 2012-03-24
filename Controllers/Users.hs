@@ -3,9 +3,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Controllers.Users ( KeysController(..), listKeys
-                         , UsersController(..), userEdit
-                         ) where
+module Controllers.Users ( UsersController(..), userEdit, userUpdate ) where
 
 import Control.Monad
 
@@ -47,50 +45,23 @@ userEdit = do
   user <- liftLIO $ getOrCreateUser uName
   renderHtml $ editUser user
 
-data KeysController = KeysController
+userUpdate :: Action t DC ()
+userUpdate = do
+  policy <- liftLIO gitstar
+  uName <- (S8.unpack . fromJust) `liftM` requestHeader "x-hails-user"
+  oldUser <- liftLIO $ getOrCreateUser uName
+  fullName <- param "full_name" >>= return . (fmap (L8.unpack . paramValue))
+  city <- param "city" >>= return . (fmap (L8.unpack . paramValue))
+  website <- param "website" >>= return . (fmap (L8.unpack . paramValue))
+  gravatar <- param "gravatar" >>= return . (fmap (L8.unpack . paramValue))
 
-contentType :: Monad m => Action t m S8.ByteString
-contentType = do
-  mctype <- requestHeader "accept"
-  return $ fromMaybe "text/plain" mctype
-
-listKeys :: Action t DC  ()
-listKeys = do
-    (Just uName) <- param "user_name" >>= return . (fmap (L8.unpack . paramValue))
-    keys <- liftLIO $ fmap userKeys $ getOrCreateUser uName
-    ctype <- contentType
-    case ctype of
-      "application/json" -> render "application/json" $ L8.pack $ keysToJson keys
-      _ -> renderHtml $ keysIndex keys
-    where keysToJson ks = "[" ++ (joinS $ map (unbin . sshKeyValue) ks) ++ "]"
-          unbin (Binary bs) = S8.unpack bs
-          joinS [] = ""
-          joinS (x:[]) = show x
-          joinS (x:xs) = (show x) ++ "," ++ (joinS xs)
-
-instance RestController DC KeysController where
-  restIndex _ = do
-    uName <- (S8.unpack . fromJust) `liftM` requestHeader "x-hails-user"
-    keys <- liftLIO $ fmap userKeys $ getOrCreateUser uName
-    ctype <- contentType
-    case ctype of
-      "application/json" -> render "application/json" $ "[]"
-      _ -> renderHtml $ keysIndex keys
-
-  restNew _ = do
-    renderHtml $ newUserKey
-
-  restCreate _ = do
-    uName <- (S8.unpack . fromJust) `liftM` requestHeader "x-hails-user"
-    user <- liftLIO $ getOrCreateUser uName
-    keyTitle <- param "ssh_key_title" >>= return . fmap paramValue >>= return . fromMaybe ""
-    keyValue <- param "ssh_key_value" >>= return . fmap paramValue >>= return . fromMaybe ""
-    let key = SSHKey { sshKeyTitle = L8.unpack keyTitle
-                     , sshKeyValue = Binary $ S8.pack $ L8.unpack keyValue}
-    -- TODO: validate key title/value aren't empty
-    let resultUser = user { userKeys = key:(userKeys user) }
-    policy <- liftLIO gitstar
-    privs <- doGetPolicyPriv policy
-    liftIO $ saveRecordP privs policy resultUser
-    redirectTo "/keys"
+  let user = oldUser {
+      userFullName = fullName
+    , userCity = city
+    , userWebsite = website
+    , userGravatar = gravatar
+  }
+  privs <- doGetPolicyPriv policy
+  liftLIO $ saveRecordP privs policy user
+  redirectTo $ "/" ++ userName user
 

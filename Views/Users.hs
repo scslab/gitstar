@@ -3,21 +3,45 @@
 
 module Views.Users  where
 
-import Prelude hiding (div)
+import Prelude hiding (div, span)
 import Control.Monad
 
 import Models
 import Text.Blaze.Html5 hiding (title)
-import Text.Blaze.Html5.Attributes hiding (id, label, form)
+import Text.Blaze.Html5.Attributes hiding (id, label, form, span)
 
+import Data.Maybe
 import qualified Data.ByteString.Char8 as S8
+import qualified Data.ByteString.Lazy.Char8 as L8
 import Hails.Data.LBson (Binary(..), ObjectId)
+import Hails.Crypto
 
 showUser :: User -> [Project] -> Html
 showUser user projs = do
-  h1 $ toHtml $ userName user
+  h1 $ do
+    let gravatar = show.md5 $ L8.pack $ fromMaybe "" $ userGravatar user
+    img ! src (toValue $ "https://secure.gravatar.com/avatar/" ++ gravatar ++ "?s=48")
+    toHtml $ " " ++ userName user
+  hr
+  p ! class_ "well" $ do
+    case userFullName user of
+      Just fn -> do
+        toHtml $ "Name: " ++ fn
+        br
+      _ -> ""
+    case userCity user of
+      Just city -> do
+        toHtml $ "Location: " ++ city
+        br
+      _ -> ""
+    case userWebsite user of
+      Just website -> do
+        "Website: "
+        a ! href (toValue website) $ toHtml website
+        br
+      _ -> ""
   unless (null projs) $ do
-    h2 "Projects"
+    h2 $ toHtml $ "Projects (" ++ (show . length $ projs) ++ ")"
     ul $ forM_ projs $ \proj ->
         li $ a ! href (toValue $ "/" ++ (userName user) ++ "/" ++ (projectName proj)) $
                       toHtml (projectName proj)
@@ -39,6 +63,10 @@ formUser muser =
       input ! type_ "text" ! name "city"
             ! (value $ toValue $ att userCity)
     div $ do
+      label "Website"
+      input ! type_ "url" ! name "website"
+            ! (value $ toValue $ att userWebsite)
+    div $ do
       label "Gravatar E-mail"
       input ! type_ "email" ! name "gravatar"
             ! (value $ toValue $ att userGravatar)
@@ -47,37 +75,3 @@ formUser muser =
                     Just user -> maybe "" id $ fn user
                     Nothing -> ""
 
-formUserKey :: Html
-formUserKey = 
-  form ! action "/keys" ! method "POST" $ do
-    div $ do
-      label "Key title"
-      input ! type_ "text" ! name "ssh_key_title"
-    div $ do
-      label "Key"
-      textarea ! name "ssh_key_value" $ ""
-    div $ button ! type_ "submit" $ "Add key"
-
-
-keysIndex :: [SSHKey] -> Html
-keysIndex keys = do
-  h1 "SSH Keys"
-  table ! class_ "table table-striped table-bordered" $ do
-    tr $ do
-      th "Title"
-      th "Fingerprint"
-    forM_ keys $ \k -> do
-      tr $ do
-        td $ toHtml (sshKeyTitle k)
-        td $ toHtml $ showKeyVal (sshKeyValue k)
-
-newUserKey :: Html
-newUserKey = do
-  h1 "Register new key"
-  formUserKey
-
--- | Show a Binary value
-showKeyVal :: Binary -> String
-showKeyVal (Binary bs) =
-  let strVal = S8.unpack bs
-  in take 30 strVal
