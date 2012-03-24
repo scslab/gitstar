@@ -21,7 +21,7 @@ showProject proj = do
     toHtml $ projectName proj
     unless (isPublic proj) $
       i ! class_ "icon-lock" ! title "Private project" $ ""
-  p $ a ! href (toValue $ "/projects/" ++ (show . projectObjId $ proj) ++ "/edit") $ "edit"
+  p $ a ! href (toValue $ "/" ++ projectOwner proj ++ "/" ++ projectName proj ++ "/edit") $ "edit"
   p ! class_ "well" $ toHtml $ let desc = projectDescription proj
                                in if null desc then "No description" else desc
   p $ toHtml $ "Repo: " ++ projectRepository proj
@@ -30,7 +30,7 @@ showProject proj = do
 
 formProject :: Maybe Project -> Html
 formProject mproj = do
-  let act = toValue $ "/projects/" ++ (maybe "" (show . projectObjId) mproj)
+  let act = toValue $ (maybe "/projects" (\proj -> "/" ++ projectOwner proj ++ "/" ++ projectName proj) mproj)
   form ! action act ! method "POST" $ do
     case mproj of
       Just _ -> return ()
@@ -40,9 +40,10 @@ formProject mproj = do
           input ! type_ "text" ! name "name"
     div $ do
       label ! class_ "checkbox" $ do
-        input ! type_ "checkbox" ! name "public"
-              ! checked (toValue $ if projIsPub
-                                    then "checked" else "" :: String )
+        if projIsPub then
+          input ! type_ "checkbox" ! name "public"
+                ! checked "checked"
+          else input ! type_ "checkbox" ! name "public"
         "Public?"
     div $ do
       label "Readers"
