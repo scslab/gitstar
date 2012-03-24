@@ -2,7 +2,10 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module Views where
+module Views.Projects ( showProject
+                      , editProject
+                      , newProject
+                      ) where
 
 import Prelude hiding (div)
 import Control.Monad
@@ -21,11 +24,9 @@ showProject proj = do
   p $ a ! href (toValue $ "/projects/" ++ (show . projectObjId $ proj) ++ "/edit") $ "edit"
   p ! class_ "well" $ toHtml $ let desc = projectDescription proj
                                in if null desc then "No description" else desc
-  p $ do "Repo: "; toHtml $ projectRepository proj
+  p $ toHtml $ "Repo: " ++ projectRepository proj
   h2 "Collaborators"
-  ul $ do
-    forM_ (projectCollaborators proj) (\col ->
-      li $ toHtml col)
+  ul $ forM_ (projectCollaborators proj) (li . toHtml)
 
 formProject :: Maybe Project -> Html
 formProject mproj = do
@@ -62,7 +63,7 @@ formProject mproj = do
                 maybe "" (intercalate "," .  projectCollaborators) mproj
               readers = case mproj of
                 Nothing -> ""
-                Just p -> either (const "") (intercalate ",") $ projectReaders p
+                Just r -> either (const "") (intercalate ",") $ projectReaders r
 
 editProject :: Project -> Html
 editProject proj = do
