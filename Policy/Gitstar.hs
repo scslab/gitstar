@@ -80,15 +80,21 @@ owner = S8.unpack . name . fromJust . extractPrincipal . priv
 -- | User name is simply  a stirng
 type UserName = String
 
+-- | Email is simply  a stirng
+type Email = String
+
 -- | An SSH key has a name and key value
 data SSHKey = SSHKey { sshKeyTitle :: !String  -- ^ Name
                      , sshKeyValue :: !Binary  -- ^ Actual key
                      } deriving (Show, Eq)
 
 -- | Data type describing users
-data User = User { userName     :: UserName    -- ^ User name
-                 , userKeys     :: [SSHKey]    -- ^ User's ssh keys
-                 , userProjects :: [ProjectId] -- ^ User's projects
+data User = User { userName     :: UserName     -- ^ Username
+                 , userKeys     :: [SSHKey]     -- ^ User's ssh keys
+                 , userProjects :: [ProjectId]  -- ^ User's projects
+                 , userFullName :: Maybe String -- ^ User's full name
+                 , userCity :: Maybe String     -- ^ User's location
+                 , userGravatar :: Maybe Email  -- ^ User's gravatar e-mail
                  } deriving (Show, Eq)
 
 instance DCRecord User where
@@ -101,7 +107,10 @@ instance DCRecord User where
     uPrjs <- lookup (u "projects") doc
     return $ User { userName      = uName
                   , userKeys      = keys
-                  , userProjects  = uPrjs }
+                  , userProjects  = uPrjs
+                  , userFullName = lookup (u "full_name") doc
+                  , userCity = lookup (u "city") doc
+                  , userGravatar = lookup (u "gravatar") doc}
       where docToSshKey :: Monad m => Document DCLabel -> m SSHKey
             docToSshKey doc = do
               t <- lookup (u "title") doc
@@ -111,7 +120,10 @@ instance DCRecord User where
 
   toDocument usr = [ (u "_id")      =: userName usr
                    , (u "keys")     =: (map sshKeyToDoc $ userKeys usr)
-                   , (u "projects") =: userProjects usr ]
+                   , (u "projects") =: userProjects usr
+                   , (u "full_name") =: userFullName usr
+                   , (u "city") =: userCity usr
+                   , (u "city") =: userGravatar usr]
     where sshKeyToDoc :: SSHKey -> BsonDocument
           sshKeyToDoc k = fromJust $
             safeToBsonDoc ([ (u "title") =: sshKeyTitle k
@@ -131,6 +143,9 @@ getOrCreateUser username = do
                         userName = username
                       , userKeys = []
                       , userProjects = []
+                      , userFullName = Nothing
+                      , userCity = Nothing
+                      , userGravatar = Nothing
                       }
       res <- insertRecordP priv gsPolicy user
       case res of

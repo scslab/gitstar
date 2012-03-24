@@ -17,7 +17,8 @@ server = runLHttpRoute $ mconcat
     [ routeName "static" $ routeFileSys systemMimeMap (dirRedir "index.html") "static"
     , routeRestController "projects" ProjectsController
     , routeRestController "keys" KeysController
+    , routeActionPattern "/user/edit" $ userEdit
     , routeActionPattern "/:user_name/keys" $ listKeys
     , routeActionPattern "/:user_name/:id" $ toRestShow ProjectsController
-    , routeActionPattern "/:user_name" $ userShow
+    , routeActionPattern "/:id" $ toRestShow UsersController
     ]

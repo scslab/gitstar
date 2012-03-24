@@ -1,10 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Views.Users ( showUser
-                   , newUserKey
-                   , keysIndex
-                   ) where
+module Views.Users  where
 
 import Prelude hiding (div)
 import Control.Monad
@@ -24,6 +21,31 @@ showUser user projs = do
     ul $ forM_ projs $ \proj ->
         li $ a ! href (toValue $ "/" ++ (userName user) ++ "/" ++ (projectName proj)) $
                       toHtml (projectName proj)
+
+editUser :: User -> Html
+editUser user = do
+  h1 $ toHtml $ "My profile (" ++ userName user ++ ")"
+  formUser $ Just user
+
+formUser :: Maybe User -> Html
+formUser muser = 
+  form ! action "/user" ! method "POST" $ do
+    div $ do
+      label "Name"
+      input ! type_ "text" ! name "full_name"
+            ! (value $ toValue $ att userFullName)
+    div $ do
+      label "City"
+      input ! type_ "text" ! name "city"
+            ! (value $ toValue $ att userCity)
+    div $ do
+      label "Gravatar E-mail"
+      input ! type_ "email" ! name "gravatar"
+            ! (value $ toValue $ att userGravatar)
+    div $ button ! type_ "submit" $ "Submit"
+  where att fn = case muser of
+                    Just user -> maybe "" id $ fn user
+                    Nothing -> ""
 
 formUserKey :: Html
 formUserKey = 
