@@ -15,4 +15,12 @@ import Hails.Data.LBson (Binary(..), ObjectId)
 
 welcomeView :: Html
 welcomeView = do
-  "hello"
+  div ! class_ "hero-unit" $ do
+    h1 $ "Gitstar - Where loops count"
+    p $ "Gitstar is a distruptive, extensible, HTML5 based, \
+        \community driven, social code sharing app full of Haskell \
+        \goodness. Look at your keyboard. Gitstar hosts your code \
+        \and presents an interface that's... just... magical! I'm on a \
+        \horse"
+    p $ a ! href "/projects/new" ! class_ "btn btn-large btn-primary" $
+          "Start coding!"
