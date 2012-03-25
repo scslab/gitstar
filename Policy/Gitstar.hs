@@ -123,7 +123,7 @@ fingerprint key = separate $ show $ md5 (keyData)
         keyVal (Binary bs) = S8.unpack bs
         separate (a:b:c:xs) = a:b:':':(separate (c:xs))
         separate (a:b:[]) = a:b:[]
-        separate [] = []
+        separate a = a
 
 -- | Data type describing users
 data User = User { userName     :: UserName     -- ^ Username
