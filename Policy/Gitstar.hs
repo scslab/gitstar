@@ -3,7 +3,7 @@
 {-# LANGUAGE Safe #-}
 module Policy.Gitstar ( gitstar
                       , GitstarPolicy
-                      , UserName, User(..), SSHKey(..)
+                      , UserName, User(..), SSHKey(..), fingerprint
                       , getOrCreateUser
                       , ProjectId, Project(..), Public(..)
                       ) where
@@ -12,18 +12,21 @@ import Prelude hiding (lookup)
 
 import Control.Monad (foldM)
 
+import qualified Codec.Binary.Base64.String as B64
 import Data.Maybe (listToMaybe, fromJust)
 import Data.Typeable
-import Hails.Data.LBson hiding (map)
+import Hails.Data.LBson hiding (map, head, tail, words)
 
+import Hails.Crypto
 import Hails.Database
-import Hails.Database.MongoDB hiding (map)
+import Hails.Database.MongoDB hiding (map, head, tail, words)
 import Hails.Database.MongoDB.Structured
 
 import LIO
 import LIO.DCLabel
 
 import qualified Data.ByteString.Char8 as S8
+import qualified Data.ByteString.Lazy.Char8 as L8
 
 -- | Policy handler
 gitstar :: DC GitstarPolicy
@@ -107,6 +110,20 @@ type Email = String
 
 -- | URL
 type Url = String
+
+-- | Generate the SSH fingerprint format for the 'SSHKey' based on
+-- draft-ietf-secsh-fingerprint-00 (matches output from
+-- ssh-keygen -lf [pubkey_file])
+fingerprint :: SSHKey -> String
+fingerprint key = separate $ show $ md5 (keyData)
+  where keyData = L8.pack $ B64.decode key64
+        key64 = case words (keyVal $ sshKeyValue key) of
+                              (_:blob:_) -> blob
+                              [blob] -> blob
+        keyVal (Binary bs) = S8.unpack bs
+        separate (a:b:c:xs) = a:b:':':(separate (c:xs))
+        separate (a:b:[]) = a:b:[]
+        separate a = a
 
 -- | Data type describing users
 data User = User { userName     :: UserName     -- ^ Username
