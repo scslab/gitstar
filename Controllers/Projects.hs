@@ -37,17 +37,16 @@ contentType = do
 instance RestController DC ProjectsController where
   restShow _ projectName = do
     policy <- liftLIO gitstar
-    (Just uName) <- param "user_name"
-    projM <- liftLIO $ findWhere policy $ select [ "name" =: L8.unpack projectName
-                                                 , "owner" =: (L8.unpack $ paramValue uName)]
-                                                 "projects"
-    case projM of
-      Just proj -> do
-        ctype <- contentType
-        case ctype of
-          "application/bson" -> render "application/bson" $ encodeDoc $ toDocument proj
-          _ -> renderHtml $ showProject proj
-      Nothing   -> respond404
+    uName <- getParamVal "user_name"
+    mProj <- liftLIO $ findWhere policy $
+                select [ "name" =: L8.unpack projectName
+                       , "owner" =: uName ] "projects"
+    with404orJust mProj $ \proj -> do
+      atype <- requestHeader "accept"
+      case atype of
+        Just "application/bson" ->
+          render "application/bson" $ encodeDoc $ toDocument proj
+        _ -> renderHtml $ showProject proj
 
   restEdit _ projectName = do
     policy <- liftLIO gitstar
@@ -92,7 +91,7 @@ instance RestController DC ProjectsController where
       where projExists policy owner projName = do
               let qry = select ["name" =: projName, "owner" =: owner] "projects"
               mproj <- liftLIO $ findWhere policy qry
-              return $ case mproj of 
+              return $ case mproj of
                          (Just (Project {})) -> True
                          _                   -> False
 
