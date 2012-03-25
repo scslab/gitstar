@@ -7,6 +7,7 @@ import Prelude hiding (div, span)
 import Control.Monad
 
 import Models
+import Policy.Gitstar
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (id, label, form, span)
 
@@ -41,18 +42,14 @@ keysIndex keys = do
     forM_ keys $ \k -> do
       tr $ do
         td $ toHtml (sshKeyTitle k)
-        td $ toHtml $ showKeyVal (sshKeyValue k)
+        td $ toHtml $ fingerprint k
         --TODO: implement delete
         td $ a ! href (toValue $ "/keys/"++ show (sshKeyId k) ++ "/delete") $ do
              span ! class_ "icon-trash" $ ""
              "Remove"
+
 newUserKey :: Html
 newUserKey = do
   h1 "Register new key"
   formUserKey
 
--- | Show a Binary value
-showKeyVal :: Binary -> String
-showKeyVal (Binary bs) =
-  let strVal = S8.unpack bs
-  in take 30 strVal
