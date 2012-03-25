@@ -28,40 +28,37 @@ import Hails.Data.LBson (Binary(..), genObjectId,genObjectId)
 data UsersController = UsersController
 
 instance RestController DC UsersController where
+  -- /:id where :id is the user name
   restShow _ uName = do
     policy <- liftLIO gitstar
     muser <- liftLIO $ findBy policy "users" "_id" $ L8.unpack uName
-    case muser of
-      Just user -> do
-        projs <- liftLIO $ mapM (findBy policy "projects" "_id") (userProjects user)
-        let projects = map (fromMaybe undefined) projs
-        renderHtml $ showUser user projects
-      Nothing -> respond404
+    with404orJust muser $ \user -> do
+      projs <- liftLIO $ mapM (findBy policy "projects" "_id") (userProjects user)
+      let projects = catMaybes projs
+      renderHtml $ showUser user projects
 
 userEdit :: Action t DC ()
 userEdit = do
   policy <- liftLIO gitstar
-  uName <- (S8.unpack . fromJust) `liftM` requestHeader "x-hails-user"
+  uName <- getHailsUser
   user <- liftLIO $ getOrCreateUser uName
   renderHtml $ editUser user
 
 userUpdate :: Action t DC ()
 userUpdate = do
-  policy <- liftLIO gitstar
-  uName <- (S8.unpack . fromJust) `liftM` requestHeader "x-hails-user"
-  oldUser <- liftLIO $ getOrCreateUser uName
-  fullName <- param "full_name" >>= return . (fmap (L8.unpack . paramValue))
-  city <- param "city" >>= return . (fmap (L8.unpack . paramValue))
-  website <- param "website" >>= return . (fmap (L8.unpack . paramValue))
-  gravatar <- param "gravatar" >>= return . (fmap (L8.unpack . paramValue))
-
-  let user = oldUser {
-      userFullName = fullName
-    , userCity = city
-    , userWebsite = website
-    , userGravatar = gravatar
-  }
+  policy   <- liftLIO gitstar
+  uName    <- getHailsUser
+  oldUser  <- liftLIO $ getOrCreateUser uName
+  fullName <- paramToMStr "full_name"
+  city     <- paramToMStr "city"
+  website  <- paramToMStr "website"
+  gravatar <- paramToMStr "gravatar"
+  let user = oldUser { userFullName = fullName
+                     , userCity = city
+                     , userWebsite = website
+                     , userGravatar = gravatar }
   privs <- doGetPolicyPriv policy
   liftLIO $ saveRecordP privs policy user
   redirectTo $ "/" ++ userName user
+    where paramToMStr = getMParamVal L8.unpack
 
