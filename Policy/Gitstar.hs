@@ -5,12 +5,13 @@ module Policy.Gitstar ( gitstar
                       , GitstarPolicy
                       , UserName, User(..), SSHKey(..), fingerprint
                       , getOrCreateUser
+                      , addKeyToUser
                       , ProjectId, Project(..), Public(..)
                       ) where
 
 import Prelude hiding (lookup)
 
-import Control.Monad (foldM)
+import Control.Monad
 
 import qualified Codec.Binary.Base64.String as B64
 import Data.Maybe (listToMaybe, fromJust)
@@ -50,6 +51,7 @@ instance DatabasePolicy GitstarPolicy where
 
   policyOwner (GitstarPolicy p _) = principal . owner $ p
 
+
 instance PrivilegeGrantGate GitstarPolicy where
   grantPriv policy@(GitstarPolicy p _) app = getLabel >>= \curL ->
      let l = newDC (secrecy curL) (policyOwner policy)
@@ -84,23 +86,40 @@ owner = S8.unpack . name . fromJust . extractPrincipal . priv
 type KeyId = ObjectId
 
 -- | An SSH key has a name and key value
-data SSHKey = SSHKey { sshKeyId    :: KeyId    -- ^ Key id
-                     , sshKeyTitle :: !String  -- ^ Name
+data SSHKey = SSHKey { sshKeyTitle :: !String  -- ^ Name
                      , sshKeyValue :: !Binary  -- ^ Actual key
                      } deriving (Show, Eq)
 
 instance DCRecord SSHKey where
   fromDocument doc = do
-    i <- lookup (u "_id") doc
     t <- lookup (u "title") doc
     v <- lookup (u "value")  doc
-    return $ SSHKey { sshKeyId = i
-                    , sshKeyTitle = t
+    return $ SSHKey { sshKeyTitle = t
                     , sshKeyValue = v }
-  toDocument k = [ (u "_id")   =: sshKeyId k
-                 , (u "title") =: sshKeyTitle k
+  toDocument k = [ (u "title") =: sshKeyTitle k
                  , (u "value") =: sshKeyValue k ]
   collectionName = error "Not insertable"
+
+addKeyToUser :: UserName
+             -> DCLabeled (Document DCLabel) -> DC (Either Failure ())
+addKeyToUser userName ldoc = do
+  self@(GitstarPolicy priv _) <- gitstar
+  muser <- withDB self $ findOneP priv $ select ["_id" =: userName] "users"
+  case muser of
+    Right (Just luser) -> do
+      unless (labelOf ldoc `canflowto` labelOf luser) $
+        fail "Cannot write key to user"
+      (Just user) <- fmap fromDocument $ unlabel luser
+      key <- do
+        rawkey <- unlabel ldoc
+        let key = case lookup "value" rawkey of
+                    Just keyValue ->
+                      ("value" =: (Binary $ S8.pack keyValue)):rawkey
+                    Nothing -> rawkey
+        maybe (fail "Mal-formatted key") return $ fromDocument key
+      saveRecordP priv self user { userKeys = key:(userKeys user) }
+    Right Nothing -> fail "No such user"
+    Left f -> return $ Left f
 
 -- | User name is simply  a stirng
 type UserName = String
