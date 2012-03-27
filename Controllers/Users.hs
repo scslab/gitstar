@@ -13,21 +13,19 @@ import Utils
 import Policy.Gitstar
 import Views.Users
 
-import LIO
-import LIO.DCLabel
-
 import Data.Maybe (catMaybes, fromJust, fromMaybe)
 import Data.IterIO.Http
 import Data.IterIO.Http.Support
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy.Char8 as L8
 
+import Hails.App
 import Hails.Data.LBson (Binary(..), genObjectId,genObjectId)
 
 -- | Usercontroller
 data UsersController = UsersController
 
-instance RestController DC UsersController where
+instance RestController a DC UsersController where
   -- /:id where :id is the user name
   restShow _ uName = do
     policy <- liftLIO gitstar
@@ -60,5 +58,5 @@ userUpdate = do
   privs <- doGetPolicyPriv policy
   liftLIO $ saveRecordP privs policy user
   redirectTo $ "/" ++ userName user
-    where paramToMStr = getMParamVal L8.unpack
+    where paramToMStr = paramValM L8.unpack
 

@@ -3,9 +3,10 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Controllers.Keys ( KeysController(..), listKeys ) where
+module Controllers.Keys ( KeysController(..)) where
 
 import Control.Monad
+import Control.Monad.Trans
 
 import Models
 import Layouts
@@ -13,10 +14,8 @@ import Utils
 import Policy.Gitstar
 import Views.Keys
 
-import LIO
-import LIO.DCLabel
-
 import Data.Maybe (catMaybes, fromJust, fromMaybe)
+import Data.IterIO
 import Data.IterIO.Http
 import Data.IterIO.Http.Support
 import qualified Data.ByteString as S
@@ -24,19 +23,16 @@ import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Lazy.Char8 as L8
 
+import Hails.App
 import Hails.Data.LBson hiding (map)
+import Hails.Database.MongoDB (labeledDocI)
 
-data KeysController = KeysController
+data KeysController = KeysController (DCLabeled L8.ByteString)
 
 contentType :: Monad m => Action t m S8.ByteString
 contentType = do
   mctype <- requestHeader "accept"
   return $ fromMaybe "text/plain" mctype
-
-listKeys :: Action t DC  ()
-listKeys = do
-  uName <- getParamVal "user_name"
-  doListKeys uName
 
 doListKeys :: UserName -> Action t DC  ()
 doListKeys uName = do
@@ -50,27 +46,18 @@ doListKeys uName = do
           mkDoc ks = fromJust . safeToBsonDoc $
                       (["keys" =: map convert ks] :: Document DCLabel)
 
-instance RestController DC KeysController where
+instance RestController a DC KeysController where
   restIndex _ = do
     uName <- getHailsUser
     doListKeys uName
 
   restNew _ = renderHtml newUserKey
 
-  restCreate _ = do
-    -- TODO: remove host if present @ end of key
+  restCreate (KeysController lbody) = do
     uName <- getHailsUser
-    user <- liftLIO $ getOrCreateUser uName
-    keyTitle <- getParamVal "ssh_key_title"
-    keyValue <- (paramValue . fromJust) `liftM` param "ssh_key_value"
-    nId <- liftLIO $ genObjectId
-    let key = SSHKey { sshKeyId = nId
-                     , sshKeyTitle = keyTitle
-                     , sshKeyValue = Binary $ strictify keyValue}
-    let resultUser = user { userKeys = key : userKeys user }
-    policy <- liftLIO gitstar
-    privs <- doGetPolicyPriv policy
-    liftIO $ saveRecordP privs policy resultUser
+    req <- getHttpReq
+    ldoc <- liftLIO $ labeledDocI req lbody
+    liftLIO $ addKeyToUser uName ldoc
     redirectTo "/keys"
       where strictify = S.concat . L.toChunks
 

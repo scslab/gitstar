@@ -19,10 +19,10 @@ formUserKey =
   form ! action "/keys" ! method "POST" $ do
     div $ do
       label "Key title"
-      input ! type_ "text" ! name "ssh_key_title"
+      input ! type_ "text" ! name "title"
     div $ do
       label "Key"
-      textarea ! name "ssh_key_value" $ ""
+      textarea ! name "value" $ ""
     div $ button ! type_ "submit" $ "Add key"
 
 
@@ -44,7 +44,7 @@ keysIndex keys = do
         td $ toHtml (sshKeyTitle k)
         td $ toHtml $ fingerprint k
         --TODO: implement delete
-        td $ a ! href (toValue $ "/keys/"++ show (sshKeyId k) ++ "/delete") $ do
+        td $ a ! href "/keys/" $ do
              span ! class_ "icon-trash" $ ""
              "Remove"
 

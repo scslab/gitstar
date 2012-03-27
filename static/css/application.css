@@ -1,12 +1,15 @@
-@import url(http://fonts.googleapis.com/css?family=Ubuntu:400,700,400italic,700italic|Inika:400,700);
+@import url(http://fonts.googleapis.com/css?family=Ubuntu:400,700,400italic,700italic|Inika:400,700|Annie+Use+Your+Telescope);
 
 body {
   padding-top: 60px;
+  font-family: "Ubuntu", serif;
+}
+
+h1, h2, h3 {
   font-family: "Inika", serif;
 }
 
 p {
-  font-family: "Ubuntu", sans-serif;
   font-size: 110%;
 }
 

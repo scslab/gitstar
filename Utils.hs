@@ -16,12 +16,6 @@ import LIO
 import LIO.DCLabel
 
 
--- | Force get parameter value
-getParamVal n = (L8.unpack . paramValue . fromJust) `liftM` param n
-
--- | Get (maybe) paramater value and transform it with @f@
-getMParamVal f n = fmap (f . paramValue) `liftM` param n
-
 -- | Convert a Param comma separate value to a list of values
 fromCSList :: Param -> [String]
 fromCSList = map (strip . L8.unpack) . L8.split ',' . paramValue

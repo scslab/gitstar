@@ -12,9 +12,6 @@ import Policy.Gitstar
 import Utils
 import Views.Projects
 
-import LIO
-import LIO.DCLabel
-
 import Hails.Database.MongoDB (select, (=:))
 
 import Data.Maybe (fromJust, fromMaybe, isJust)
@@ -23,6 +20,7 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 import Data.IterIO.Http
 import Data.IterIO.Http.Support
 
+import Hails.App
 import Hails.Data.LBson (cast', ObjectId, encodeDoc)
 
 import Control.Monad (liftM, void)
@@ -34,10 +32,10 @@ contentType = do
   mctype <- requestHeader "accept"
   return $ fromMaybe "text/plain" mctype
 
-instance RestController DC ProjectsController where
+instance RestController a DC ProjectsController where
   restShow _ projectName = do
     policy <- liftLIO gitstar
-    uName <- getParamVal "user_name"
+    uName <- fmap L8.unpack $ paramVal "user_name"
     mProj <- liftLIO $ findWhere policy $
                 select [ "name" =: L8.unpack projectName
                        , "owner" =: uName ] "projects"
@@ -50,7 +48,7 @@ instance RestController DC ProjectsController where
 
   restEdit _ projectName = do
     policy <- liftLIO gitstar
-    uName <- getParamVal "user_name"
+    uName <- fmap L8.unpack $ paramVal "user_name"
     mProj <- liftLIO $ findWhere policy $
                 select [ "name" =: L8.unpack projectName
                        , "owner" =: uName ] "projects"
@@ -62,10 +60,10 @@ instance RestController DC ProjectsController where
   restCreate _ = do
     policy <- liftLIO gitstar
     pOwner <- getHailsUser
-    pName  <- getParamVal "name"
+    pName  <- fmap L8.unpack $ paramVal "name"
     pPub   <- isJust `liftM` param "public"
     pRedrs <- maybe [] fromCSList `liftM` param "readers"
-    pDesc  <- getParamVal "description"
+    pDesc  <- fmap L8.unpack $ paramVal "description"
     pColls <- maybe [] fromCSList `liftM` param "collaborators"
     let proj = Project { projectId            = Nothing
                        , projectName          = pName 
@@ -97,7 +95,7 @@ instance RestController DC ProjectsController where
 
   restUpdate _ projName = do
     policy <- liftLIO gitstar
-    uName <- getParamVal "user_name"
+    uName <- fmap L8.unpack $ paramVal "user_name"
     projM <- liftLIO $ findWhere policy $ select [ "name" =: L8.unpack projName
                                                  , "owner" =: uName]
                                                  "projects"
@@ -105,7 +103,7 @@ instance RestController DC ProjectsController where
       Just proj -> do
         pPub   <- isJust `liftM` param "public"
         pRedrs <- maybe [] fromCSList `liftM` param "readers"
-        pDesc  <- getParamVal "description"
+        pDesc  <- fmap L8.unpack $ paramVal "description"
         pColls <- maybe [] fromCSList `liftM` param "collaborators"
         let projFinal = proj { projectDescription   = pDesc 
                              , projectCollaborators = pColls
