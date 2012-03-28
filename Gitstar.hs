@@ -9,7 +9,7 @@ import Data.IterIO.Http.Support
 
 server :: AppReqHandler
 server = runLHttpRoute $ mconcat 
-    [ routeTop $ routeAction $ welcome
+    [ routeTop $ routeAction welcome
     , routeName "static" $
         routeFileSys systemMimeMap (dirRedir "index.html") "static"
     , routeRestController "keys" KeysController

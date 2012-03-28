@@ -14,6 +14,7 @@ import Views.Projects
 
 import LIO
 import LIO.DCLabel
+import LIO.MonadCatch
 
 import Hails.Database.MongoDB (select, (=:))
 
@@ -24,8 +25,11 @@ import Data.IterIO.Http
 import Data.IterIO.Http.Support
 
 import Hails.Data.LBson (cast', ObjectId, encodeDoc)
+import Hails.IterIO.HttpClient
 
-import Control.Monad (liftM, void)
+import Control.Monad (liftM, void, unless)
+
+import Config
 
 data ProjectsController = ProjectsController
 
@@ -74,12 +78,22 @@ instance RestController DC ProjectsController where
                        , projectCollaborators = pColls
                        , projectReaders       = if pPub then Left Public
                                                         else Right pRedrs } 
-    exists <- projExists policy pOwner pName
+    privs <- doGetPolicyPriv policy
+    exists <- projExists privs policy pOwner pName
     if exists
       then redirectTo "/projects/new"
            --TODO: print error "Project with this name exists"
-      else do privs <- doGetPolicyPriv policy
-              erf <- liftLIO $ insertRecordP privs policy proj
+      else do let url = gitstar_ssh_web_url ++ "repos/" ++ pOwner ++ "/" ++ pName
+                  req0 = postRequest url "application/none" L8.empty
+                  authHdr = ( S8.pack "authorization"
+                            , gitstar_ssh_web_authorization)
+                  acceptHdr = (S8.pack "accept", S8.pack "application/bson")
+                  req  = req0 {reqHeaders = authHdr: acceptHdr: reqHeaders req0}
+              erf <- liftLIO $ do
+                resp <- simpleHttpP privs req L8.empty
+                unless (respStatusDC resp == stat200) $ throwIO . userError
+                                                      $ "SSH Web server failure"
+                insertRecordP privs policy proj
               case erf of
                 Right r -> do
                   maybe (return ()) (\oid -> do
@@ -88,9 +102,9 @@ instance RestController DC ProjectsController where
                    void . liftLIO $ saveRecordP privs policy usr) $ cast' r
                   redirectTo $ "/" ++ pOwner ++ "/" ++ pName
                 _      -> respondStat stat500
-      where projExists policy owner projName = do
+      where projExists priv policy owner projName = do
               let qry = select ["name" =: projName, "owner" =: owner] "projects"
-              mproj <- liftLIO $ findWhere policy qry
+              mproj <- liftLIO $ findWhereP priv policy qry
               return $ case mproj of
                          (Just (Project {})) -> True
                          _                   -> False
