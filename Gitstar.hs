@@ -1,4 +1,7 @@
+{-# LANGUAGE CPP #-}
+#if PRODUCTION
 {-# LANGUAGE Safe #-}
+#endif
 module Gitstar where
 
 import Data.ByteString.Char8

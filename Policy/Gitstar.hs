@@ -1,6 +1,9 @@
+{-# LANGUAGE CPP #-}
+#if PRODUCTION
+{-# LANGUAGE Safe #-}
+#endif
 {-# LANGUAGE OverloadedStrings, DeriveDataTypeable #-}
 {-# LANGUAGE MultiParamTypeClasses, IncoherentInstances #-}
-{-# LANGUAGE Safe #-}
 module Policy.Gitstar ( gitstar
                       , GitstarPolicy
                       -- * Projects

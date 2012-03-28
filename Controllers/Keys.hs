@@ -1,3 +1,7 @@
+{-# LANGUAGE CPP #-}
+#if PRODUCTION
+{-# LANGUAGE Safe #-}
+#endif
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -58,7 +62,6 @@ instance RestController DC KeysController where
   restNew _ = renderHtml newUserKey
 
   restCreate _ = do
-    -- TODO: remove host if present @ end of key
     uName <- getHailsUser
     user <- liftLIO $ getOrCreateUser uName
     keyTitle <- getParamVal "ssh_key_title"
@@ -69,7 +72,7 @@ instance RestController DC KeysController where
                      , sshKeyValue = Binary $ strictify keyValue}
     let resultUser = user { userKeys = key : userKeys user }
     policy <- liftLIO gitstar
-    privs <- doGetPolicyPriv policy
+    privs <- appGetPolicyPriv policy
     liftIO $ saveRecordP privs policy resultUser
     redirectTo "/keys"
       where strictify = S.concat . L.toChunks

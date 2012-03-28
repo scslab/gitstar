@@ -1,4 +1,7 @@
+{-# LANGUAGE CPP #-}
+#if PRODUCTION
 {-# LANGUAGE Safe #-}
+#endif
 
 module Controllers ( module Controllers.Projects
                    , module Controllers.Users
