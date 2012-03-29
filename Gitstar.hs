@@ -15,6 +15,11 @@ server = runLHttpRoute $ mconcat
     [ routeTop $ routeAction welcome
     , routeName "static" $
         routeFileSys systemMimeMap (dirRedir "index.html") "static"
+    --
+    , routeMethod "GET" $ routeActionPattern
+                            "/repos/:user_name/:project_name/branches"
+                            repoShowBranches
+    --
     , routeRestController "keys" KeysController
     , routeMethod "GET" $ routeActionPattern "/user/edit" userEdit
     , routeMethod "POST" $ routeActionPattern "/user" userUpdate

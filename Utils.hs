@@ -32,16 +32,10 @@ fromCSList = map (strip . L8.unpack) . L8.split ',' . paramValue
   where strip = filter (not . isSpace)
 
 -- | Get privileges based on current user
-appGetPolicyPriv :: PrivilegeGrantGate dbp =>  dbp -> Action t DC DCPrivTCB
+appGetPolicyPriv :: PrivilegeGrantGate dbp => dbp -> Action t DC DCPrivTCB
 appGetPolicyPriv policy = do
   app <- (principal . fromJust) `liftM` requestHeader  "x-hails-app"
   doGetPolicyPriv policy app
-
--- | Get privileges based on current app
-userGetPolicyPriv :: PrivilegeGrantGate dbp =>  dbp -> Action t DC DCPrivTCB
-userGetPolicyPriv policy = do
-  usr <- (principal . fromJust) `liftM` requestHeader "x-hails-user"
-  doGetPolicyPriv policy usr
 
 -- | Get privilege based on principal
 doGetPolicyPriv :: PrivilegeGrantGate dbp => dbp -> Principal -> Action t DC DCPrivTCB

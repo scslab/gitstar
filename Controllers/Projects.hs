@@ -44,7 +44,7 @@ contentType = do
 instance RestController DC ProjectsController where
   restShow _ projectName = do
     policy <- liftLIO gitstar
-    privs <- userGetPolicyPriv policy
+    privs <- getPolicyPrivIfUserIsGitstar policy
     uName <- getParamVal "user_name"
     mProj <- liftLIO $ findWhereP privs policy $
                 select [ "name" =: L8.unpack projectName
@@ -55,6 +55,12 @@ instance RestController DC ProjectsController where
         Just "application/bson" ->
           render "application/bson" $ encodeDoc $ toDocument proj
         _ -> renderHtml $ showProject proj
+    where getPolicyPrivIfUserIsGitstar policy = do
+          usr <- getHailsUser
+          if usr == "gitstar" -- ssh server making request
+            then appGetPolicyPriv policy
+            else return noPrivs
+
 
   restEdit _ projectName = do
     policy <- liftLIO gitstar
