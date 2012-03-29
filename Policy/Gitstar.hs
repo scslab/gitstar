@@ -3,21 +3,21 @@
 {-# LANGUAGE Safe #-}
 module Policy.Gitstar ( gitstar
                       , GitstarPolicy
-                      , UserName, User(..), SSHKey(..), fingerprint
-                      , getOrCreateUser
+                      -- * Projects
                       , ProjectId, Project(..), Public(..)
+                      -- * Users
+                      , UserName, User(..), SSHKey(..)
+                      , getOrCreateUser
                       ) where
 
 import Prelude hiding (lookup)
 
 import Control.Monad (foldM)
 
-import qualified Codec.Binary.Base64.String as B64
 import Data.Maybe (listToMaybe, fromJust)
 import Data.Typeable
 import Hails.Data.LBson hiding (map, head, tail, words)
 
-import Hails.Crypto
 import Hails.Database
 import Hails.Database.MongoDB hiding (map, head, tail, words)
 import Hails.Database.MongoDB.Structured
@@ -26,7 +26,6 @@ import LIO
 import LIO.DCLabel
 
 import qualified Data.ByteString.Char8 as S8
-import qualified Data.ByteString.Lazy.Char8 as L8
 
 -- | Policy handler
 gitstar :: DC GitstarPolicy
@@ -94,9 +93,9 @@ instance DCRecord SSHKey where
     i <- lookup (u "_id") doc
     t <- lookup (u "title") doc
     v <- lookup (u "value")  doc
-    return $ SSHKey { sshKeyId = i
-                    , sshKeyTitle = t
-                    , sshKeyValue = v }
+    return SSHKey { sshKeyId = i
+                  , sshKeyTitle = t
+                  , sshKeyValue = v }
   toDocument k = [ (u "_id")   =: sshKeyId k
                  , (u "title") =: sshKeyTitle k
                  , (u "value") =: sshKeyValue k ]
@@ -110,20 +109,6 @@ type Email = String
 
 -- | URL
 type Url = String
-
--- | Generate the SSH fingerprint format for the 'SSHKey' based on
--- draft-ietf-secsh-fingerprint-00 (matches output from
--- ssh-keygen -lf [pubkey_file])
-fingerprint :: SSHKey -> String
-fingerprint key = separate $ show $ md5 (keyData)
-  where keyData = L8.pack $ B64.decode key64
-        key64 = case words (keyVal $ sshKeyValue key) of
-                              (_:blob:_) -> blob
-                              [blob] -> blob
-        keyVal (Binary bs) = S8.unpack bs
-        separate (a:b:c:xs) = a:b:':':(separate (c:xs))
-        separate (a:b:[]) = a:b:[]
-        separate a = a
 
 -- | Data type describing users
 data User = User { userName     :: UserName     -- ^ Username
@@ -166,7 +151,7 @@ instance DCRecord User where
 -- create the user.
 getOrCreateUser :: UserName -> DC User
 getOrCreateUser username = do
-  gsPolicy@(GitstarPolicy priv _) <- gitstar
+  gsPolicy@(GitstarPolicy privs _) <- gitstar
   resM <- findBy gsPolicy  "users" "_id" username
   case resM of
     Just user -> return user
@@ -180,7 +165,7 @@ getOrCreateUser username = do
                       , userWebsite = Nothing
                       , userGravatar = Nothing
                       }
-      res <- insertRecordP priv gsPolicy user
+      res <- insertRecordP privs gsPolicy user
       case res of
         Right _ -> return user
         Left _ -> fail "Failed to create user"
