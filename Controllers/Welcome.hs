@@ -1,3 +1,7 @@
+{-# LANGUAGE CPP #-}
+#if PRODUCTION
+{-# LANGUAGE Safe #-}
+#endif
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}

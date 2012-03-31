@@ -1,3 +1,7 @@
+{-# LANGUAGE CPP #-}
+#if PRODUCTION
+{-# LANGUAGE Safe #-}
+#endif
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 

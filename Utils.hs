@@ -1,3 +1,7 @@
+{-# LANGUAGE CPP #-}
+#if PRODUCTION
+{-# LANGUAGE Safe #-}
+#endif
 {-# LANGUAGE OverloadedStrings #-}
 
 module Utils where
@@ -8,7 +12,7 @@ import Data.Char (isSpace)
 import Data.Maybe (listToMaybe, fromJust)
 
 import Data.IterIO.Http.Support
-import Hails.Database.MongoDB (grantPriv)
+import Hails.Database.MongoDB (grantPriv, PrivilegeGrantGate)
 
 import Control.Monad
 
@@ -27,11 +31,18 @@ fromCSList :: Param -> [String]
 fromCSList = map (strip . L8.unpack) . L8.split ',' . paramValue
   where strip = filter (not . isSpace)
 
-doGetPolicyPriv policy = do
-  app  <- (principal . fromJust) `liftM` requestHeader "x-hails-app"
-  liftLIO $ do gate <- grantPriv policy app
-               p <- getPrivileges
-               callGate gate p
+-- | Get privileges based on current user
+appGetPolicyPriv :: PrivilegeGrantGate dbp => dbp -> Action t DC DCPrivTCB
+appGetPolicyPriv policy = do
+  app <- (principal . fromJust) `liftM` requestHeader  "x-hails-app"
+  doGetPolicyPriv policy app
+
+-- | Get privilege based on principal
+doGetPolicyPriv :: PrivilegeGrantGate dbp => dbp -> Principal -> Action t DC DCPrivTCB
+doGetPolicyPriv policy prin = liftLIO $ do
+  gate <- grantPriv policy prin
+  p <- getPrivileges
+  callGate gate p
 
 maybeRead :: Read a => String -> Maybe a
 maybeRead = fmap fst . listToMaybe . reads

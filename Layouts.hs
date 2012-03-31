@@ -1,5 +1,8 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
+#if PRODUCTION
 {-# LANGUAGE Safe #-}
+#endif
+{-# LANGUAGE OverloadedStrings #-}
 
 module Layouts where
 
