@@ -1,4 +1,7 @@
+{-# LANGUAGE CPP #-}
+#if PRODUCTION
 {-# LANGUAGE Safe #-}
+#endif
 module Config ( gitstar_ssh_web_url
               , gitstar_ssh_web_authorization ) where
 

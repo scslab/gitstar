@@ -1,3 +1,7 @@
+{-# LANGUAGE CPP #-}
+#if PRODUCTION
+{-# LANGUAGE Safe #-}
+#endif
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -57,7 +61,7 @@ userUpdate = do
                      , userCity = city
                      , userWebsite = website
                      , userGravatar = gravatar }
-  privs <- doGetPolicyPriv policy
+  privs <- appGetPolicyPriv policy
   liftLIO $ saveRecordP privs policy user
   redirectTo $ "/" ++ userName user
     where paramToMStr = getMParamVal L8.unpack

@@ -1,4 +1,7 @@
+{-# LANGUAGE CPP #-}
+#if PRODUCTION
 {-# LANGUAGE Safe #-}
+#endif
 
 module Models ( -- * Projects
                 ProjectId, Project(..), Public(..)

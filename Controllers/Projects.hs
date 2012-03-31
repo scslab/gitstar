@@ -1,6 +1,9 @@
+{-# LANGUAGE CPP #-}
+#if PRODUCTION
+{-# LANGUAGE Safe #-}
+#endif
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE Safe #-}
 
 module Controllers.Projects ( ProjectsController(..) ) where
 
@@ -41,8 +44,9 @@ contentType = do
 instance RestController DC ProjectsController where
   restShow _ projectName = do
     policy <- liftLIO gitstar
+    privs <- getPolicyPrivIfUserIsGitstar policy
     uName <- getParamVal "user_name"
-    mProj <- liftLIO $ findWhere policy $
+    mProj <- liftLIO $ findWhereP privs policy $
                 select [ "name" =: L8.unpack projectName
                        , "owner" =: uName ] "projects"
     with404orJust mProj $ \proj -> do
@@ -51,6 +55,12 @@ instance RestController DC ProjectsController where
         Just "application/bson" ->
           render "application/bson" $ encodeDoc $ toDocument proj
         _ -> renderHtml $ showProject proj
+    where getPolicyPrivIfUserIsGitstar policy = do
+          usr <- getHailsUser
+          if usr == "gitstar" -- ssh server making request
+            then appGetPolicyPriv policy
+            else return noPrivs
+
 
   restEdit _ projectName = do
     policy <- liftLIO gitstar
@@ -78,7 +88,7 @@ instance RestController DC ProjectsController where
                        , projectCollaborators = pColls
                        , projectReaders       = if pPub then Left Public
                                                         else Right pRedrs } 
-    privs <- doGetPolicyPriv policy
+    privs <- appGetPolicyPriv policy
     exists <- projExists privs policy pOwner pName
     if exists
       then redirectTo "/projects/new"
@@ -126,7 +136,7 @@ instance RestController DC ProjectsController where
                              , projectReaders       = if pPub then Left Public
                                                               else Right pRedrs
                              }
-        privs <- doGetPolicyPriv policy
+        privs <- appGetPolicyPriv policy
         erf <- liftLIO $ saveRecordP privs policy projFinal
         case erf of
           Right _ -> redirectTo $ "/" ++ projectOwner projFinal ++
