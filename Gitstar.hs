@@ -17,40 +17,28 @@ server = runAction $ do
 --    , routeName "static" $
 --        routeFileSys systemMimeMap (dirRedir "index.html") "static"
     --
-    , routeMethod "GET" $ routeActionPattern
-                            "/repos/:user_name/:project_name/branches"
-                            repoShowBranches
-    , routeMethod "GET" $ routeActionPattern
-                            "/repos/:user_name/:project_name/tags"
-                            repoShowTags
-    , routeMethod "GET" $ routeActionPattern
-                            "/repos/:user_name/:project_name/git/tags/:id"
-                            repoShowGitTag
-    , routeMethod "GET" $ routeActionPattern
-                            "/repos/:user_name/:project_name/git/blobs/:id"
-                            repoShowGitBlob
-    , routeMethod "GET" $ routeActionPattern
-                            "/repos/:user_name/:project_name/git/commits/:id"
-                            repoShowGitCommit
-    , routeMethod "GET" $ routeActionPattern
-                            "/repos/:user_name/:project_name/git/refs"
-                            repoShowGitRefs
-    , routeMethod "GET" $ routeActionPattern
-                            "/repos/:user_name/:project_name/git/trees/:id"
-                            repoShowGitTree
+    , routeMethod "GET" $ routePattern "/repos/:user_name/:project_name" $ mconcat
+        [ routeName "branches" $ routeAction repoShowBranches
+        , routeName "tags" $ routeAction repoShowTags
+        , routePattern "/git/tags/:id" $ routeAction repoShowGitTag
+        , routePattern "/git/blobs/:id" $ routeAction repoShowGitBlob
+        , routePattern "/git/commits/:id" $ routeAction repoShowGitCommit
+        , routePattern "/git/refs" $ routeAction repoShowGitRefs
+        , routePattern "/git/trees/:id" $ routeAction repoShowGitTree]
     --
     , routeRestController "keys" KeysController
-    , routeMethod "GET" $ routeActionPattern "/user/edit" userEdit
-    , routeMethod "POST" $ routeActionPattern "/user" userUpdate
+    , routeMethod "GET" $ routePattern "/user/edit" $ routeAction userEdit
+    , routeMethod "POST" $ routePattern "/user" $ routeAction userUpdate
     , routeRestController "projects" ProjectsController
-    , routeMethod "GET" $ routeActionPattern "/:user_name/keys" listKeys
-    , routeMethod "GET" $ routeActionPattern "/:user_name/:id/edit" $
-                          to restEdit ProjectsController
-    , routeMethod "GET" $ routeActionPattern "/:user_name/:id" $
+    , routeMethod "GET" $ routePattern "/:user_name" $ mconcat
+      [ routeName "keys" $ routeAction listKeys
+      , routePattern "/:id/edit" $ to restEdit ProjectsController]
+    , routeMethod "GET" $ routePattern "/:user_name/:id" $
                           to restShow ProjectsController
-    , routeMethod "POST" $ routeActionPattern "/:user_name/:id" $
+    , routeMethod "POST" $ routePattern "/:user_name/:id" $
                            to restUpdate ProjectsController
-    , routeActionPattern "/:id" $ to restShow UsersController
+    , routePattern "/:id" $ to restShow UsersController
     ]
-      where to fn ctr = do (Just var) <- param $ pack "id"
-                           fn ctr $ paramValue var
+      where to fn ctr = routeAction $
+                          do (Just var) <- param $ pack "id"
+                             fn ctr $ paramValue var
