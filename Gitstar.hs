@@ -11,10 +11,11 @@ import Controllers
 import Data.IterIO.Http.Support
 
 server :: AppReqHandler
-server = runLHttpRoute $ mconcat 
+server = runAction $ do
+  runActionRoute $ mconcat 
     [ routeTop $ routeAction welcome
-    , routeName "static" $
-        routeFileSys systemMimeMap (dirRedir "index.html") "static"
+--    , routeName "static" $
+--        routeFileSys systemMimeMap (dirRedir "index.html") "static"
     --
     , routeMethod "GET" $ routeActionPattern
                             "/repos/:user_name/:project_name/branches"

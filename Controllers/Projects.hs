@@ -36,12 +36,12 @@ import Config
 
 data ProjectsController = ProjectsController
 
-contentType :: Monad m => Action t m S8.ByteString
+contentType :: Monad m => Action t b m S8.ByteString
 contentType = do
   mctype <- requestHeader "accept"
   return $ fromMaybe "text/plain" mctype
 
-instance RestController DC ProjectsController where
+instance RestController t b DC ProjectsController where
   restShow _ projectName = do
     policy <- liftLIO gitstar
     privs <- getPolicyPrivIfUserIsGitstar policy

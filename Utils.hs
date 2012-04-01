@@ -32,13 +32,13 @@ fromCSList = map (strip . L8.unpack) . L8.split ',' . paramValue
   where strip = filter (not . isSpace)
 
 -- | Get privileges based on current user
-appGetPolicyPriv :: PrivilegeGrantGate dbp => dbp -> Action t DC DCPrivTCB
+appGetPolicyPriv :: PrivilegeGrantGate dbp => dbp -> Action t b DC DCPrivTCB
 appGetPolicyPriv policy = do
   app <- (principal . fromJust) `liftM` requestHeader  "x-hails-app"
   doGetPolicyPriv policy app
 
 -- | Get privilege based on principal
-doGetPolicyPriv :: PrivilegeGrantGate dbp => dbp -> Principal -> Action t DC DCPrivTCB
+doGetPolicyPriv :: PrivilegeGrantGate dbp => dbp -> Principal -> Action t b DC DCPrivTCB
 doGetPolicyPriv policy prin = liftLIO $ do
   gate <- grantPriv policy prin
   p <- getPrivileges
@@ -51,5 +51,5 @@ with404orJust mval act = case mval of
                            Nothing -> respond404
                            Just val -> act val
 
-getHailsUser :: Monad m => Action t m String
+getHailsUser :: Monad m => Action t b m String
 getHailsUser = (S8.unpack . fromJust) `liftM` requestHeader "x-hails-user"
