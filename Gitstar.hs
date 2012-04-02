@@ -12,6 +12,11 @@ import Data.IterIO.Http.Support
 
 server :: AppReqHandler
 server = runAction $ do
+  req <- getHttpReq
+  prms0 <- params
+  body <- getBody >>= (liftLIO . unlabel)
+  prms1 <- parseParams' req body
+  setParams $ prms1 ++ prms0
   runActionRoute $ mconcat 
     [ routeTop $ routeAction welcome
 --    , routeName "static" $
