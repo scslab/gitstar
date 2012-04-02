@@ -1,1 +1,1 @@
-web: hails
+web: runghc hails

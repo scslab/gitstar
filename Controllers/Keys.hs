@@ -32,17 +32,17 @@ import Hails.Data.LBson hiding (map)
 
 data KeysController = KeysController
 
-contentType :: Monad m => Action t m S8.ByteString
+contentType :: Monad m => Action t b m S8.ByteString
 contentType = do
   mctype <- requestHeader "accept"
   return $ fromMaybe "text/plain" mctype
 
-listKeys :: Action t DC  ()
+listKeys :: Action t b DC  ()
 listKeys = do
   uName <- getParamVal "user_name"
   doListKeys uName
 
-doListKeys :: UserName -> Action t DC  ()
+doListKeys :: UserName -> Action t b DC  ()
 doListKeys uName = do
   keys <- liftLIO $ fmap userKeys $ getOrCreateUser uName
   atype <- requestHeader "accept"
@@ -54,7 +54,7 @@ doListKeys uName = do
           mkDoc ks = fromJust . safeToBsonDoc $
                       (["keys" =: map convert ks] :: Document DCLabel)
 
-instance RestController DC KeysController where
+instance RestController t b DC KeysController where
   restIndex _ = do
     uName <- getHailsUser
     doListKeys uName
