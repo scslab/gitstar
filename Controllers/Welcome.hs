@@ -18,6 +18,6 @@ import LIO.DCLabel
 import Data.IterIO.Http
 import Data.IterIO.Http.Support
 
-welcome :: Action t DC ()
+welcome :: Action t b DC ()
 welcome = do
   renderHtml welcomeView

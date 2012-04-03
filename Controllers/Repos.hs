@@ -36,39 +36,39 @@ import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy.Char8 as L8
 
 -- /repos/:user_name/:project_name/branches
-repoShowBranches :: Action t DC ()
+repoShowBranches :: Action t b DC ()
 repoShowBranches = mkRequestToGitstarSsh "/branches"
 
 -- /repos/:user_name/:project_name/tags
-repoShowTags :: Action t DC ()
+repoShowTags :: Action t b DC ()
 repoShowTags = mkRequestToGitstarSsh "/tags"
 
 -- /repos/:user_name/:project_name/git/tags/:id
-repoShowGitTag :: Action t DC ()
+repoShowGitTag :: Action t b DC ()
 repoShowGitTag = do
   sha  <- getParamVal "id"
   mkRequestToGitstarSsh $ "/git/tags/" ++ sha
 
 -- /repos/:user_name/:project_name/git/blobs/:id
-repoShowGitBlob :: Action t DC ()
+repoShowGitBlob :: Action t b DC ()
 repoShowGitBlob = do
   sha  <- getParamVal "id"
   mkRequestToGitstarSsh $ "/git/blobs/" ++ sha
 
 -- /repos/:user_name/:project_name/git/commits/:id
-repoShowGitCommit :: Action t DC ()
+repoShowGitCommit :: Action t b DC ()
 repoShowGitCommit = do
   sha  <- getParamVal "id"
   mkRequestToGitstarSsh $ "/git/commits/" ++ sha
 
 -- /repos/:user_name/:project_name/git/trees/:id
-repoShowGitTree :: Action t DC ()
+repoShowGitTree :: Action t b DC ()
 repoShowGitTree = do
   sha  <- getParamVal "id"
   mkRequestToGitstarSsh $ "/git/trees/" ++ sha
 
 -- /repos/:user_name/:project_name/git/refs
-repoShowGitRefs :: Action t DC ()
+repoShowGitRefs :: Action t b DC ()
 repoShowGitRefs = do
   req <- getHttpReq
   uName  <- getParamVal "user_name"
@@ -87,7 +87,7 @@ repoShowGitRefs = do
 -- | Given user name, project name and URL suffix make GET
 -- request to gitstar-ssh-web server
 -- The request made will be: @GET /repos/user_name/project_name/urlSuffix@
-mkRequestToGitstarSsh :: String -> Action t DC ()
+mkRequestToGitstarSsh :: String -> Action t b DC ()
 mkRequestToGitstarSsh urlSuffix = do
   policy <- liftLIO gitstar
   uName  <- getParamVal "user_name"

@@ -31,7 +31,7 @@ import Hails.Data.LBson (Binary(..), genObjectId,genObjectId)
 -- | Usercontroller
 data UsersController = UsersController
 
-instance RestController DC UsersController where
+instance RestController t b DC UsersController where
   -- /:id where :id is the user name
   restShow _ uName = do
     policy <- liftLIO gitstar
@@ -41,14 +41,14 @@ instance RestController DC UsersController where
       let projects = catMaybes projs
       renderHtml $ showUser user projects
 
-userEdit :: Action t DC ()
+userEdit :: Action t b DC ()
 userEdit = do
   policy <- liftLIO gitstar
   uName <- getHailsUser
   user <- liftLIO $ getOrCreateUser uName
   renderHtml $ editUser user
 
-userUpdate :: Action t DC ()
+userUpdate :: Action t b DC ()
 userUpdate = do
   policy   <- liftLIO gitstar
   uName    <- getHailsUser
