@@ -28,6 +28,7 @@ import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Lazy.Char8 as L8
 
+import Hails.App
 import Hails.Data.LBson hiding (map)
 
 data KeysController = KeysController
@@ -40,9 +41,9 @@ contentType = do
 listKeys :: Action t b DC  ()
 listKeys = do
   uName <- getParamVal "user_name"
-  doListKeys uName
+  doListKeys (error "Controllers/Keys.hs:listKeys: get labeld param")
 
-doListKeys :: UserName -> Action t b DC  ()
+doListKeys :: DCLabeled UserName -> Action t b DC  ()
 doListKeys uName = do
   keys <- liftLIO $ fmap userKeys $ getOrCreateUser uName
   atype <- requestHeader "accept"

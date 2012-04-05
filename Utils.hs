@@ -13,17 +13,26 @@ import Data.Maybe (listToMaybe, fromJust)
 
 import Data.IterIO.Http.Support
 import Hails.Database.MongoDB (grantPriv, PrivilegeGrantGate)
+import Hails.Database.MongoDB.Structured
 
 import Control.Monad
 
 import LIO
 import LIO.DCLabel
 
+import Policy.Gitstar
+import Hails.App
+
 
 -- | Force get parameter value
+getParamVal :: Monad m => S8.ByteString -> Action t b m String
 getParamVal n = (L8.unpack . paramValue . fromJust) `liftM` param n
 
 -- | Get (maybe) paramater value and transform it with @f@
+getMParamVal :: Monad m
+             => (L8.ByteString -> a)
+             -> S8.ByteString
+             -> Action t b m (Maybe a)
 getMParamVal f n = fmap (f . paramValue) `liftM` param n
 
 -- | Convert a Param comma separate value to a list of values
@@ -34,8 +43,10 @@ fromCSList = map (strip . L8.unpack) . L8.split ',' . paramValue
 -- | Get privileges based on current user
 appGetPolicyPriv :: PrivilegeGrantGate dbp => dbp -> Action t b DC DCPrivTCB
 appGetPolicyPriv policy = do
-  app <- (principal . fromJust) `liftM` requestHeader  "x-hails-app"
+  app <- principalS `liftM` getHailsApp
   doGetPolicyPriv policy app
+    where principalS :: String -> Principal
+          principalS = principal
 
 -- | Get privilege based on principal
 doGetPolicyPriv :: PrivilegeGrantGate dbp => dbp -> Principal -> Action t b DC DCPrivTCB
@@ -47,9 +58,19 @@ doGetPolicyPriv policy prin = liftLIO $ do
 maybeRead :: Read a => String -> Maybe a
 maybeRead = fmap fst . listToMaybe . reads
 
+with404orJust :: Monad m => Maybe a -> (a -> Action t b m ()) -> Action t b m ()
 with404orJust mval act = case mval of
                            Nothing -> respond404
                            Just val -> act val
 
-getHailsUser :: Monad m => Action t b m String
-getHailsUser = (S8.unpack . fromJust) `liftM` requestHeader "x-hails-user"
+-- | Get the user and if it's not already in the DB, insert it.
+getOrCreateUser :: DCLabeled UserName -> DC User
+getOrCreateUser luName = do
+  policy <- gitstar
+  luser <- getOrMkUser luName
+  user <- unlabel luser
+  mres <- findBy policy  "users" "_id" (userName user)
+  case mres of
+    Just u -> return u
+    _ -> do res <- insertLabeledRecord policy luser
+            either (fail "Failed to create user") (const $ return user) res

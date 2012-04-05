@@ -10,23 +10,24 @@ module Policy.Gitstar ( gitstar
                       , ProjectId, Project(..), Public(..)
                       -- * Users
                       , UserName, User(..), SSHKey(..)
-                      , getOrCreateUser
+                      , getOrMkUser
+                      , partialUserUpdate 
                       ) where
 
 import Prelude hiding (lookup)
 
-import Control.Monad (foldM)
+import Control.Monad (foldM, unless)
 
-import Data.Maybe (listToMaybe, fromJust)
+import Data.Maybe (listToMaybe, fromJust, fromMaybe)
 import Data.Typeable
 import Hails.Data.LBson hiding (map, head, tail, words)
 
+import Hails.App
 import Hails.Database
-import Hails.Database.MongoDB hiding (map, head, tail, words)
+import Hails.Database.MongoDB hiding (Action, map, head, tail, words)
 import Hails.Database.MongoDB.Structured
 
-import LIO
-import LIO.DCLabel
+import LIO.MonadCatch
 
 import qualified Data.ByteString.Char8 as S8
 
@@ -77,9 +78,8 @@ extractPrincipal c | c == (><) = Nothing
 owner :: DCPrivTCB -> String
 owner = S8.unpack . name . fromJust . extractPrincipal . priv
 
-
 --
--- User model
+-- Key model
 --
 
 -- | A key id is an object ID
@@ -104,6 +104,28 @@ instance DCRecord SSHKey where
                  , (u "value") =: sshKeyValue k ]
   collectionName = error "Not insertable"
 
+--
+-- User model
+--
+
+-- | Collection keeping track of users
+-- /Security properties:/
+--
+--   * User name and ssh-key are searchable
+--
+--   * Only gitstar or user may modify the ssh key and project list
+--
+usersCollection :: TCBPriv -> DC (Collection DCLabel)
+usersCollection p = collectionP p "users" lpub colClearance $
+  RawPolicy (userLabel . fromJust . fromDocument)
+            [ ("_id", SearchableField)
+            , ("key", SearchableField)
+            ]
+   where userLabel usr = newDC (<>) ((userName usr) .\/. (owner p))
+         colClearance = newDC (owner p) (<>)
+
+
+
 -- | User name is simply  a stirng
 type UserName = String
 
@@ -118,8 +140,8 @@ data User = User { userName     :: UserName     -- ^ Username
                  , userKeys     :: [SSHKey]     -- ^ User's ssh keys
                  , userProjects :: [ProjectId]  -- ^ User's projects
                  , userFullName :: Maybe String -- ^ User's full name
-                 , userCity :: Maybe String     -- ^ User's location
-                 , userWebsite :: Maybe Url     -- ^ User's website
+                 , userCity     :: Maybe String -- ^ User's location
+                 , userWebsite  :: Maybe Url    -- ^ User's website
                  , userGravatar :: Maybe Email  -- ^ User's gravatar e-mail
                  } deriving (Show, Eq)
 
@@ -139,55 +161,77 @@ instance DCRecord User where
                   , userWebsite = lookup (u "website") doc
                   , userGravatar = lookup (u "gravatar") doc}
 
-  toDocument usr = [ (u "_id")      =: userName usr
-                   , (u "keys")     =: (map sshKeyToDoc $ userKeys usr)
-                   , (u "projects") =: userProjects usr
+  toDocument usr = [ (u "_id")       =: userName usr
+                   , (u "keys")      =: (map sshKeyToDoc $ userKeys usr)
+                   , (u "projects")  =: userProjects usr
                    , (u "full_name") =: userFullName usr
-                   , (u "city") =: userCity usr
-                   , (u "website") =: userWebsite usr
-                   , (u "gravatar") =: userGravatar usr]
+                   , (u "city")      =: userCity usr
+                   , (u "website")   =: userWebsite usr
+                   , (u "gravatar")  =: userGravatar usr]
     where sshKeyToDoc = (fromJust . safeToBsonDoc . toDocument)
   collectionName _ = "users"
 
+instance DCLabeledRecord User where
 
--- | If a user exists, retrive the entry from DB, otherwise
--- create the user.
-getOrCreateUser :: UserName -> DC User
-getOrCreateUser username = do
+-- | If user exists, retrive the entry from DB, otherwise
+-- create the user, but do not insert it into the database.
+-- The provided username must be endorsed by the user, which
+-- and app can get with 'getHailsUser'. This function simply
+-- returns a gitstar endorsed user which can then be inserted with
+-- 'insertLabeled'.
+getOrMkUser :: DCLabeled UserName -> DC (DCLabeled User)
+getOrMkUser lusername = do
+  username <- unlabel lusername
+  let userl = newDC (<>) username
+  unless (labelOf lusername `leq` userl) err
+  doGetOrMkUser username
+    where err = throwIO . userError $ "Username must be endorsed."
+
+-- | If user exists, retrive the entry from DB, otherwise
+-- create the user, but do not insert it into the database.
+-- Note: this function exercises gitstar's
+-- privileges and so will alawys succeed to insert.
+doGetOrMkUser :: UserName -> DC (DCLabeled User)
+doGetOrMkUser username = do
   gsPolicy@(GitstarPolicy privs _) <- gitstar
-  resM <- findBy gsPolicy  "users" "_id" username
-  case resM of
-    Just user -> return user
-    Nothing -> do
-      let user = User {
-                        userName = username
-                      , userKeys = []
-                      , userProjects = []
-                      , userFullName = Nothing
-                      , userCity = Nothing
-                      , userWebsite = Nothing
-                      , userGravatar = Nothing
-                      }
-      res <- insertRecordP privs gsPolicy user
-      case res of
-        Right _ -> return user
-        Left _ -> fail "Failed to create user"
+  mres <- findBy gsPolicy  "users" "_id" username
+  let lowner = newDC (<>) (owner privs)
+  labelP privs lowner $ fromMaybe newUser mres
+    where newUser = User { userName = username
+                         , userKeys = []
+                         , userProjects = []
+                         , userFullName = Nothing
+                         , userCity = Nothing
+                         , userWebsite = Nothing
+                         , userGravatar = Nothing
+                         }
 
--- | Collection keeping track of users
--- /Security properties:/
---
---   * User name and ssh-key are searchable
---
---   * Only gitstar or user may modify the ssh key and project list
---
-usersCollection :: TCBPriv -> DC (Collection DCLabel)
-usersCollection p = collectionP p "users" lpub colClearance $
-  RawPolicy (userLabel . fromJust . fromDocument)
-            [ ("_id", SearchableField)
-            , ("key", SearchableField)
-            ]
-   where userLabel usr = newDC (<>) ((userName usr) .\/. (owner p))
-         colClearance = newDC (owner p) (<>)
+-- | Given a user name and partial document for a 'User', return a
+-- labeld user (endorsed by the policy). The projects and actual user
+-- id are not modified if present in the document.
+partialUserUpdate :: UserName
+                  -> DCLabeled (Document DCLabel) 
+                  -> DC (DCLabeled User)
+partialUserUpdate username ldoc = do
+  -- check taht the partial document is endorsed by user
+  let userl = newDC (<>) username
+  unless (labelOf ldoc `leq` userl) err
+  -- get the user:
+  luser <- doGetOrMkUser username
+  user <- unlabel luser
+  -- unlabel partial document:
+  partialDoc <- unlabel ldoc
+  -- Do not touch the user name and projects:
+  let doc0 = (exclude ["projects", "_id"] partialDoc)
+      doc1 = toDocument user
+  -- create new user:
+  newUser <- fromDocument $ merge doc0 doc1
+  -- label the new user:
+  (GitstarPolicy privs _) <- gitstar
+  let lowner = newDC (<>) (owner privs)
+  labelP privs lowner newUser
+    where err = throwIO . userError $ "User must endorse parital update."
+
 
 --
 -- Projects model
@@ -218,7 +262,8 @@ projectsCollection p = collectionP p "projects" lpub colClearance $
             let collabs = projectCollaborators proj
                 r = case projectReaders proj of
                       Left Public -> (<>)
-                      Right rs -> listToComponent [listToDisj $ (projectOwner proj):(rs ++ collabs)]
+                      Right rs -> listToComponent [listToDisj $
+                                    (projectOwner proj):(rs ++ collabs)]
             in newDC (owner p .\/. r)
                      ((projectOwner proj) .\/.  owner p)
 

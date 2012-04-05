@@ -9,8 +9,6 @@
 
 module Controllers.Users ( UsersController(..), userEdit, userUpdate ) where
 
-import Control.Monad
-
 import Models
 import Layouts
 import Utils
@@ -20,13 +18,14 @@ import Views.Users
 import LIO
 import LIO.DCLabel
 
-import Data.Maybe (catMaybes, fromJust, fromMaybe)
-import Data.IterIO.Http
+import Data.Maybe (catMaybes)
 import Data.IterIO.Http.Support
-import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy.Char8 as L8
 
-import Hails.Data.LBson (Binary(..), genObjectId,genObjectId)
+import Hails.App
+import Hails.Database.MongoDB (labeledDocI)
+
+import Control.Monad (void)
 
 -- | Usercontroller
 data UsersController = UsersController
@@ -37,32 +36,31 @@ instance RestController t b DC UsersController where
     policy <- liftLIO gitstar
     muser <- liftLIO $ findBy policy "users" "_id" $ L8.unpack uName
     with404orJust muser $ \user -> do
+      -- findBy will return only the projects current app can see
       projs <- liftLIO $ mapM (findBy policy "projects" "_id") (userProjects user)
       let projects = catMaybes projs
       renderHtml $ showUser user projects
 
+-- | Show edit form for user
 userEdit :: Action t b DC ()
 userEdit = do
-  policy <- liftLIO gitstar
   uName <- getHailsUser
   user <- liftLIO $ getOrCreateUser uName
   renderHtml $ editUser user
 
-userUpdate :: Action t b DC ()
+-- | Update user's profile
+userUpdate :: Action t (DCLabeled L8.ByteString) DC ()
 userUpdate = do
   policy   <- liftLIO gitstar
+  req      <- getHttpReq
+  body     <- getBody
+  ldoc     <- liftLIO $ labeledDocI req body
   uName    <- getHailsUser
-  oldUser  <- liftLIO $ getOrCreateUser uName
-  fullName <- paramToMStr "full_name"
-  city     <- paramToMStr "city"
-  website  <- paramToMStr "website"
-  gravatar <- paramToMStr "gravatar"
-  let user = oldUser { userFullName = fullName
-                     , userCity = city
-                     , userWebsite = website
-                     , userGravatar = gravatar }
-  privs <- appGetPolicyPriv policy
-  liftLIO $ saveRecordP privs policy user
-  redirectTo $ "/" ++ userName user
-    where paramToMStr = getMParamVal L8.unpack
+  luser    <- liftLIO $ partialUserUpdate uName ldoc
+  -- | Check that the app can insert:
+  void . liftLIO $ insertLabeledRecordGuard policy luser
+  -- | Use policy privs to update record:
+  privs    <- appGetPolicyPriv policy
+  void . liftLIO $ saveLabeledRecordP privs policy luser
+  redirectTo $ "/" ++ uName
 

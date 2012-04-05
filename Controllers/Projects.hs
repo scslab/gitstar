@@ -27,6 +27,7 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 import Data.IterIO.Http
 import Data.IterIO.Http.Support
 
+import Hails.App
 import Hails.Data.LBson (cast', ObjectId, encodeDoc)
 import Hails.IterIO.HttpClient
 
@@ -57,7 +58,7 @@ instance RestController t b DC ProjectsController where
         _ -> renderHtml $ showProject proj
     where getPolicyPrivIfUserIsGitstar policy = do
           usr <- getHailsUser
-          if usr == "gitstar" -- ssh server making request
+          if usr == ("gitstar" :: String) -- ssh server is making request
             then appGetPolicyPriv policy
             else return noPrivs
 
@@ -75,6 +76,7 @@ instance RestController t b DC ProjectsController where
 
   restCreate _ = do
     policy <- liftLIO gitstar
+    curUser <- getHailsUser
     pOwner <- getHailsUser
     pName  <- getParamVal "name"
     pPub   <- isJust `liftM` param "public"
@@ -107,7 +109,7 @@ instance RestController t b DC ProjectsController where
               case erf of
                 Right r -> do
                   maybe (return ()) (\oid -> do
-                   oldU <- liftLIO $ getOrCreateUser pOwner
+                   oldU <- liftLIO $ getOrCreateUser curUser
                    let usr = oldU {userProjects = Just oid : userProjects oldU}
                    void . liftLIO $ saveRecordP privs policy usr) $ cast' r
                   redirectTo $ "/" ++ pOwner ++ "/" ++ pName
