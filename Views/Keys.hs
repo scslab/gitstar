@@ -20,10 +20,10 @@ formUserKey =
   form ! action "/keys" ! method "POST" $ do
     div $ do
       label "Key title"
-      input ! type_ "text" ! name "ssh_key_title"
+      input ! type_ "text" ! name "title"
     div $ do
       label "Key"
-      textarea ! name "ssh_key_value" $ ""
+      textarea ! name "value" $ ""
     div $ button ! type_ "submit" $ "Add key"
 
 

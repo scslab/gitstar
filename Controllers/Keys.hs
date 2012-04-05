@@ -22,7 +22,6 @@ import LIO.DCLabel
 
 import Data.Maybe (fromJust)
 import Data.IterIO.Http.Support
-import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
 
 import Hails.App
@@ -51,24 +50,14 @@ doListKeys updateFlag uName = do
           mkDoc ks = fromJust . safeToBsonDoc $
                       (["keys" =: map convert ks] :: Document DCLabel)
 
-instance RestController t b DC KeysController where
+instance RestController t (DCLabeled L.ByteString) DC KeysController where
   restIndex _ = getHailsUser >>= doListKeys True
 
   restNew _ = renderHtml newUserKey
 
   restCreate _ = do
-    uName <- getHailsUser
-    user <- liftLIO $ getOrCreateUser uName
-    keyTitle <- getParamVal "ssh_key_title"
-    keyValue <- (paramValue . fromJust) `liftM` param "ssh_key_value"
-    nId <- liftLIO $ genObjectId
-    let key = SSHKey { sshKeyId = nId
-                     , sshKeyTitle = keyTitle
-                     , sshKeyValue = Binary $ strictify keyValue}
-    let resultUser = user { userKeys = key : userKeys user }
-    policy <- liftLIO gitstar
-    privs <- appGetPolicyPriv policy
-    void . liftIO $ saveRecordP privs policy resultUser
+    uName  <- getHailsUser
+    ldoc   <- bodyToLDoc 
+    void . liftLIO $ do luser  <- addUserKey uName ldoc
+                        updateUser luser
     redirectTo "/keys"
-      where strictify = S.concat . L.toChunks
-

@@ -12,7 +12,9 @@ import Data.Char (isSpace)
 import Data.Maybe (listToMaybe, fromJust)
 
 import Data.IterIO.Http.Support
-import Hails.Database.MongoDB (grantPriv, PrivilegeGrantGate)
+import Hails.Database.MongoDB ( Document
+                              , grantPriv, PrivilegeGrantGate
+                              , labeledDocI )
 import Hails.Database.MongoDB.Structured
 
 import Control.Monad
@@ -77,3 +79,10 @@ getOrCreateUser luName = do
             u     <- unlabel luser
             res   <- insertLabeledRecord policy luser
             either (fail "Failed to create user") (const $ return u) res
+
+-- | Convert the body to a labeled key-value Bson document.
+bodyToLDoc :: Action t (DCLabeled L8.ByteString) DC (DCLabeled (Document DCLabel))
+bodyToLDoc = do
+ req  <- getHttpReq
+ body <- getBody
+ liftLIO $ labeledDocI req body

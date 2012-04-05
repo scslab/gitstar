@@ -23,7 +23,6 @@ import Data.IterIO.Http.Support
 import qualified Data.ByteString.Lazy.Char8 as L8
 
 import Hails.App
-import Hails.Database.MongoDB (labeledDocI)
 
 import Control.Monad (void)
 
@@ -51,16 +50,10 @@ userEdit = do
 -- | Update user's profile
 userUpdate :: Action t (DCLabeled L8.ByteString) DC ()
 userUpdate = do
-  policy   <- liftLIO gitstar
-  req      <- getHttpReq
-  body     <- getBody
-  ldoc     <- liftLIO $ labeledDocI req body
-  uName    <- getHailsUser
-  luser    <- liftLIO $ partialUserUpdate uName ldoc
-  -- | Check that the app can insert:
-  void . liftLIO $ insertLabeledRecordGuard policy luser
-  -- | Use policy privs to update record:
-  privs    <- appGetPolicyPriv policy
-  void . liftLIO $ saveLabeledRecordP privs policy luser
+  policy <- liftLIO gitstar
+  ldoc   <- bodyToLDoc 
+  uName  <- getHailsUser
+  void . liftLIO $ do luser <- partialUserUpdate uName ldoc
+                      updateUser luser
   redirectTo $ "/" ++ uName
 
