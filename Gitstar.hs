@@ -19,8 +19,6 @@ server = runAction $ do
   setParams $ prms1 ++ prms0
   runActionRoute $ mconcat 
     [ routeTop $ routeAction welcome
---    , routeName "static" $
---        routeFileSys systemMimeMap (dirRedir "index.html") "static"
     --
     , routeMethod "GET" $ routePattern "/repos/:user_name/:project_name" $ mconcat
         [ routeName "branches" $ routeAction repoShowBranches
@@ -31,17 +29,17 @@ server = runAction $ do
         , routePattern "/git/refs" $ routeAction repoShowGitRefs
         , routePattern "/git/trees/:id" $ routeAction repoShowGitTree]
     --
-    , routeRestController "keys" KeysController
+--     , routeRestController "keys" KeysController
     , routeMethod "GET" $ routePattern "/user/edit" $ routeAction userEdit
     , routeMethod "POST" $ routePattern "/user" $ routeAction userUpdate
-    , routeRestController "projects" ProjectsController
+--     , routeRestController "projects" ProjectsController
     , routeMethod "GET" $ routePattern "/:user_name" $ mconcat
       [ routeName "keys" $ routeAction listKeys
-      , routePattern "/:id/edit" $ to restEdit ProjectsController]
-    , routeMethod "GET" $ routePattern "/:user_name/:id" $
-                          to restShow ProjectsController
-    , routeMethod "POST" $ routePattern "/:user_name/:id" $
-                           to restUpdate ProjectsController
+{-       , routePattern "/:id/edit" $ to restEdit ProjectsController-}]
+--     , routeMethod "GET" $ routePattern "/:user_name/:id" $
+--                           to restShow ProjectsController
+--     , routeMethod "POST" $ routePattern "/:user_name/:id" $
+--                            to restUpdate ProjectsController
     , routePattern "/:id" $ to restShow UsersController
     ]
       where to fn ctr = routeAction $

@@ -20,45 +20,39 @@ import Views.Keys
 import LIO
 import LIO.DCLabel
 
-import Data.Maybe (catMaybes, fromJust, fromMaybe)
-import Data.IterIO.Http
+import Data.Maybe (fromJust)
 import Data.IterIO.Http.Support
 import qualified Data.ByteString as S
-import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy as L
-import qualified Data.ByteString.Lazy.Char8 as L8
 
 import Hails.App
-import Hails.Data.LBson hiding (map)
+import Hails.Data.LBson hiding (map, key)
 
 data KeysController = KeysController
 
-contentType :: Monad m => Action t b m S8.ByteString
-contentType = do
-  mctype <- requestHeader "accept"
-  return $ fromMaybe "text/plain" mctype
-
+-- | List keys for the user specified by parameter @user_name@
 listKeys :: Action t b DC  ()
 listKeys = do
   uName <- getParamVal "user_name"
-  doListKeys (error "Controllers/Keys.hs:listKeys: get labeld param")
+  curUser <- getHailsUser
+  lu <- liftLIO $ getLabel >>= \l -> label l uName
+  doListKeys (curUser == uName) lu
 
-doListKeys :: DCLabeled UserName -> Action t b DC  ()
-doListKeys uName = do
-  keys <- liftLIO $ fmap userKeys $ getOrCreateUser uName
+-- | Given a labeled username actually list the keys for the user.
+doListKeys :: Bool -> DCLabeled UserName -> Action t b DC  ()
+doListKeys updateFlag uName = do
+  keys  <- liftLIO $ userKeys `liftM` getOrCreateUser uName
   atype <- requestHeader "accept"
   case atype of
     Just "application/bson" ->
       render "application/bson" $ encodeDoc $ mkDoc keys
-    _ -> renderHtml $ keysIndex keys
+    _ -> renderHtml $ keysIndex updateFlag keys
     where convert = fromJust . safeToBsonDoc . toDocument 
           mkDoc ks = fromJust . safeToBsonDoc $
                       (["keys" =: map convert ks] :: Document DCLabel)
 
 instance RestController t b DC KeysController where
-  restIndex _ = do
-    uName <- getHailsUser
-    doListKeys uName
+  restIndex _ = getHailsUser >>= doListKeys True
 
   restNew _ = renderHtml newUserKey
 
@@ -74,7 +68,7 @@ instance RestController t b DC KeysController where
     let resultUser = user { userKeys = key : userKeys user }
     policy <- liftLIO gitstar
     privs <- appGetPolicyPriv policy
-    liftIO $ saveRecordP privs policy resultUser
+    void . liftIO $ saveRecordP privs policy resultUser
     redirectTo "/keys"
       where strictify = S.concat . L.toChunks
 

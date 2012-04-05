@@ -64,13 +64,16 @@ with404orJust mval act = case mval of
                            Just val -> act val
 
 -- | Get the user and if it's not already in the DB, insert it.
+-- Note that if the user does not exist, the labeled username must be
+-- endorsed by the principal corresponding to the username.
 getOrCreateUser :: DCLabeled UserName -> DC User
 getOrCreateUser luName = do
   policy <- gitstar
-  luser <- getOrMkUser luName
-  user <- unlabel luser
-  mres <- findBy policy  "users" "_id" (userName user)
+  uName  <- unlabel luName
+  mres   <- findBy policy  "users" "_id" uName
   case mres of
     Just u -> return u
-    _ -> do res <- insertLabeledRecord policy luser
-            either (fail "Failed to create user") (const $ return user) res
+    _ -> do luser <- getOrMkUser luName
+            u     <- unlabel luser
+            res   <- insertLabeledRecord policy luser
+            either (fail "Failed to create user") (const $ return u) res
