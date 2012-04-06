@@ -6,8 +6,6 @@
 
 module Layouts where
 
-import Utils
-
 import LIO
 import Policy.Gitstar
 import Data.Maybe

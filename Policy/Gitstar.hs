@@ -10,17 +10,16 @@ module Policy.Gitstar ( gitstar
                       , ProjectId, Project(..), Public(..)
                       -- * Users
                       , UserName, User(..), SSHKey(..)
-                      , getOrMkUser
+                      , getOrCreateUser
                       , partialUserUpdate 
                       , addUserKey 
-                      , updateUser
                       ) where
 
 import Prelude hiding (lookup)
 
 import Control.Monad
 
-import Data.Maybe (listToMaybe, fromJust, fromMaybe)
+import Data.Maybe (listToMaybe, fromJust)
 import Data.Typeable
 import Hails.Data.LBson hiding (map, head, tail, words, key)
 
@@ -175,31 +174,16 @@ instance DCRecord User where
 
 instance DCLabeledRecord User where
 
--- | If user exists, retrive the entry from DB, otherwise
--- create the user, but do not insert it into the database.
--- The provided username must be endorsed by the user, which
--- and app can get with 'getHailsUser'. This function simply
--- returns a gitstar endorsed user which can then be inserted with
--- 'insertLabeled'.
-getOrMkUser :: DCLabeled UserName -> DC (DCLabeled User)
-getOrMkUser lusername = do
-  username <- unlabel lusername
-  let userl = newDC (<>) username
-  unless (labelOf lusername `leq` userl) err
-  doGetOrMkUser username
-    where err = throwIO . userError $ "Username must be endorsed."
-
--- | If user exists, retrive the entry from DB, otherwise
--- create the user, but do not insert it into the database.
--- Note: this function exercises gitstar's
--- privileges and so will alawys succeed to insert.
-doGetOrMkUser :: UserName -> DC (DCLabeled User)
-doGetOrMkUser username = do
-  gsPolicy@(GitstarPolicy privs _) <- gitstar
-  mres <- findBy gsPolicy  "users" "_id" username
-  let lowner = newDC (<>) (owner privs)
-  labelP privs lowner $ fromMaybe newUser mres
-    where newUser = User { userName = username
+-- | Get the user and if it's not already in the DB, insert it.
+getOrCreateUser :: UserName -> DC User
+getOrCreateUser uName = do
+  policy@(GitstarPolicy privs _) <- gitstar
+  mres   <- findBy policy  "users" "_id" uName
+  case mres of
+    Just usr -> return usr
+    _ -> do res <- insertRecordP privs policy newUser
+            either (fail "Failed to create user") (const $ return newUser) res
+    where newUser = User { userName = uName
                          , userKeys = []
                          , userProjects = []
                          , userFullName = Nothing
@@ -208,6 +192,13 @@ doGetOrMkUser username = do
                          , userGravatar = Nothing
                          }
 
+-- | Execute a \"toLabeled\" gate with gitstar prvileges
+gitstarSafeToLabeled :: DCLabeled (Document DCLabel) 
+                     -> (Document DCLabel -> DC a) -> DC (DCLabeled a)
+gitstarSafeToLabeled ldoc act = do
+  (GitstarPolicy privs _) <- gitstar
+  gateToLabeled privs ldoc act
+
 -- | Given a user name and partial document for a 'User', return a
 -- labeld user (endorsed by the policy). The projects and actual user
 -- id are not modified if present in the document.
@@ -215,69 +206,33 @@ partialUserUpdate :: UserName
                   -> DCLabeled (Document DCLabel) 
                   -> DC (DCLabeled User)
 partialUserUpdate username ldoc = do
-  (GitstarPolicy privs _) <- gitstar
-  -- check that the partial document is endorsed by user or gitstar
-  let userl = newDC (<>) (username .\/. owner privs)
-  unless (labelOf ldoc `leq` userl) err
-  -- get the user:
-  luser <- doGetOrMkUser username
-  user <- unlabel luser
-  -- unlabel partial document:
-  partialDoc <- unlabel ldoc
-  -- Do not touch the user name and projects:
-  let doc0 = (exclude ["projects", "_id"] partialDoc)
-      doc1 = toDocument user
-  -- create new user:
-  newUser <- fromDocument $ merge doc0 doc1
-  -- label the new user:
-  let lowner = newDC (<>) (owner privs)
-  labelP privs lowner newUser
-    where err = throwIO . userError $ "User must endorse parital update."
+  user <- getOrCreateUser username
+  gitstarSafeToLabeled ldoc $ \partialDoc -> 
+        -- Do not touch the user name and projects:
+    let doc0 = (exclude ["projects", "_id"] partialDoc)
+        doc1 = toDocument user
+    in fromDocument $ merge doc0 doc1 -- create new user
+
 
 -- | Given a username and a labeled document corresponding to a key,
 -- find the user in the DB and return a 'User' value with the key
 -- added. The resultant value is endorsed by the policy/service.
 addUserKey :: UserName -> DCLabeled (Document DCLabel) -> DC (DCLabeled User)
 addUserKey username ldoc = do
-  policy@(GitstarPolicy privs _) <- gitstar
-  -- check that the document is endorsed by user or gitstar:
-  let userl = newDC (<>) (username .\/. owner privs)
-  unless (labelOf ldoc `leq` userl) err
-  -- get the document
-  doc <- unlabel ldoc
-  -- generate new key id:
-  newId <- genObjectId
-  -- The key value is expected to be a string, which we convert to
-  -- 'Binary' to match types
-  v <- mkKeyValueBinary doc 
-  -- create key object:
-  key <- fromDocument $ merge ["_id" =: newId, "value" =: v] doc
-  -- find the existing user:
-  muser <- liftLIO $ findBy policy "users" "_id" username
-  user  <- maybe (fail "Could not find user.") return muser
-  -- label the new user:
-  let lowner = newDC (<>) (owner privs)
-  labelP privs lowner $ user { userKeys = key : userKeys user }
-    where err = throwIO . userError $ "User must endorse key."
-          mkKeyValueBinary doc = 
-            (Binary . S8.pack) `liftM` lookup (u "value")  doc
+  user <- getOrCreateUser username
+  gitstarSafeToLabeled ldoc $ \doc -> do
+    -- generate a new key id:
+    newId <- genObjectId
+    -- The key value is expected to be a string, which we convert to
+    -- 'Binary' to match types
+    v <- mkKeyValueBinary doc 
+    -- create key object:
+    key <- fromDocument $ merge ["_id" =: newId, "value" =: v] doc
+    -- Return the new user:
+    return $ user { userKeys = key : userKeys user }
+      where mkKeyValueBinary doc = 
+              (Binary . S8.pack) `liftM` lookup (u "value")  doc
 
--- | Save an endorsed user value to the DB. Note that the app must be
--- able to write to the DB, and moreover, will be tainted to reflect
--- an insert. The policy privileges are used to bypass the restriction
--- that the curret label must flow to the label of the existing
--- document.
-updateUser :: DCLabeled User -> DC (Either Failure ())
-updateUser luser = do
-  policy@(GitstarPolicy privs _) <- gitstar
-  -- | Check that the policy endorsed this value:
-  let lowner = newDC (<>) (owner privs)
-  unless (labelOf luser `leq` lowner) err
-  -- | Check that the app can insert:
-  void $ insertLabeledRecordGuard policy luser
-  -- | Use policy privs to update record:
-  saveLabeledRecordP privs policy luser
-    where err = throwIO . userError $ "Policy did not endorse value."
 
 --
 -- Projects model

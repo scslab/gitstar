@@ -15,14 +15,12 @@ import Data.IterIO.Http.Support
 import Hails.Database.MongoDB ( Document
                               , grantPriv, PrivilegeGrantGate
                               , labeledDocI )
-import Hails.Database.MongoDB.Structured
 
 import Control.Monad
 
 import LIO
 import LIO.DCLabel
 
-import Policy.Gitstar
 import Hails.App
 
 
@@ -64,21 +62,6 @@ with404orJust :: Monad m => Maybe a -> (a -> Action t b m ()) -> Action t b m ()
 with404orJust mval act = case mval of
                            Nothing -> respond404
                            Just val -> act val
-
--- | Get the user and if it's not already in the DB, insert it.
--- Note that if the user does not exist, the labeled username must be
--- endorsed by the principal corresponding to the username.
-getOrCreateUser :: DCLabeled UserName -> DC User
-getOrCreateUser luName = do
-  policy <- gitstar
-  uName  <- unlabel luName
-  mres   <- findBy policy  "users" "_id" uName
-  case mres of
-    Just u -> return u
-    _ -> do luser <- getOrMkUser luName
-            u     <- unlabel luser
-            res   <- insertLabeledRecord policy luser
-            either (fail "Failed to create user") (const $ return u) res
 
 -- | Convert the body to a labeled key-value Bson document.
 bodyToLDoc :: Action t (DCLabeled L8.ByteString) DC (DCLabeled (Document DCLabel))

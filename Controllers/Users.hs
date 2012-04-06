@@ -50,10 +50,10 @@ userEdit = do
 -- | Update user's profile
 userUpdate :: Action t (DCLabeled L8.ByteString) DC ()
 userUpdate = do
-  policy <- liftLIO gitstar
   ldoc   <- bodyToLDoc 
   uName  <- getHailsUser
   void . liftLIO $ do luser <- partialUserUpdate uName ldoc
-                      updateUser luser
+                      policy <- gitstar
+                      saveLabeledRecord policy luser
   redirectTo $ "/" ++ uName
 

@@ -34,11 +34,10 @@ listKeys :: Action t b DC  ()
 listKeys = do
   uName <- getParamVal "user_name"
   curUser <- getHailsUser
-  lu <- liftLIO $ getLabel >>= \l -> label l uName
-  doListKeys (curUser == uName) lu
+  doListKeys (curUser == uName) uName
 
 -- | Given a labeled username actually list the keys for the user.
-doListKeys :: Bool -> DCLabeled UserName -> Action t b DC  ()
+doListKeys :: Bool -> UserName -> Action t b DC  ()
 doListKeys updateFlag uName = do
   keys  <- liftLIO $ userKeys `liftM` getOrCreateUser uName
   atype <- requestHeader "accept"
@@ -59,5 +58,6 @@ instance RestController t (DCLabeled L.ByteString) DC KeysController where
     uName  <- getHailsUser
     ldoc   <- bodyToLDoc 
     void . liftLIO $ do luser  <- addUserKey uName ldoc
-                        updateUser luser
+                        policy <- gitstar
+                        saveLabeledRecord policy luser
     redirectTo "/keys"
