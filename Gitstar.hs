@@ -9,6 +9,7 @@ import Data.Monoid
 import Hails.App
 import Controllers
 import Data.IterIO.Http.Support
+import Control.Monad (void)
 
 server :: AppReqHandler
 server = runAction $ do
@@ -16,7 +17,7 @@ server = runAction $ do
   prms0 <- params
   body <- getBody >>= (liftLIO . unlabel)
   prms1 <- parseParams' req body
-  setParams $ prms1 ++ prms0
+  void . setParams $ prms1 ++ prms0
   runActionRoute $ mconcat 
     [ routeTop $ routeAction welcome
     --
@@ -29,17 +30,17 @@ server = runAction $ do
         , routePattern "/git/refs" $ routeAction repoShowGitRefs
         , routePattern "/git/trees/:id" $ routeAction repoShowGitTree]
     --
---     , routeRestController "keys" KeysController
+    , routeRestController "keys" KeysController
     , routeMethod "GET" $ routePattern "/user/edit" $ routeAction userEdit
     , routeMethod "POST" $ routePattern "/user" $ routeAction userUpdate
---     , routeRestController "projects" ProjectsController
+    , routeRestController "projects" ProjectsController
     , routeMethod "GET" $ routePattern "/:user_name" $ mconcat
       [ routeName "keys" $ routeAction listKeys
-{-       , routePattern "/:id/edit" $ to restEdit ProjectsController-}]
---     , routeMethod "GET" $ routePattern "/:user_name/:id" $
---                           to restShow ProjectsController
---     , routeMethod "POST" $ routePattern "/:user_name/:id" $
---                            to restUpdate ProjectsController
+      , routePattern "/:id/edit" $ to restEdit ProjectsController]
+    , routeMethod "GET" $ routePattern "/:user_name/:id" $
+                          to restShow ProjectsController
+    , routeMethod "POST" $ routePattern "/:user_name/:id" $
+                           to restUpdate ProjectsController
     , routePattern "/:id" $ to restShow UsersController
     ]
       where to fn ctr = routeAction $

@@ -6,8 +6,16 @@
 {-# LANGUAGE MultiParamTypeClasses, IncoherentInstances #-}
 module Policy.Gitstar ( gitstar
                       , GitstarPolicy
+                      -- * Privileged insert/delete
+                      , gitstarInsertRecord
+                      , gitstarInsertLabeledRecord
+                      , gitstarSaveRecord
+                      , gitstarSaveLabeledRecord
                       -- * Projects
                       , ProjectId, Project(..), Public(..)
+                      , mkProject
+                      , updateUserWithProjId
+                      , partialProjectUpdate
                       -- * Users
                       , UserName, User(..), SSHKey(..)
                       , getOrCreateUser
@@ -19,18 +27,25 @@ import Prelude hiding (lookup)
 
 import Control.Monad
 
-import Data.Maybe (listToMaybe, fromJust)
+import Data.Char (isSpace)
+import Data.Maybe
 import Data.Typeable
-import Hails.Data.LBson hiding (map, head, tail, words, key)
+import Hails.Data.LBson hiding ( map, head, break
+                               , tail, words, key, filter
+                               , dropWhile, split, foldl
+                               , notElem)
 
 import Hails.App
 import Hails.Database
-import Hails.Database.MongoDB hiding (Action, map, head, tail, words, key)
+import Hails.Database.MongoDB hiding ( Action, map, head, break
+                                     , tail, words, key, filter
+                                     , dropWhile, split, foldl
+                                     , notElem)
 import Hails.Database.MongoDB.Structured
 
-import LIO.MonadCatch
-
 import qualified Data.ByteString.Char8 as S8
+
+import LIO.MonadCatch
 
 -- | Policy handler
 gitstar :: DC GitstarPolicy
@@ -78,6 +93,33 @@ extractPrincipal c | c == (><) = Nothing
 -- not a list of one principal
 owner :: DCPrivTCB -> String
 owner = S8.unpack . name . fromJust . extractPrincipal . priv
+
+--
+-- Insert and save recors with gitstar privileges
+--
+
+-- | Insert a record into the gitstar database, using privileges to
+-- downgrade the current label for the insert.
+gitstarInsertRecord :: DCRecord a => a -> DC (Either Failure (Value DCLabel))
+gitstarInsertRecord = gitstarInsertOrSaveRecord insertRecord
+
+-- | Insert a labeled record into the gitstar database, using privileges to
+-- downgrade the current label for the insert.
+gitstarInsertLabeledRecord :: DCLabeledRecord a
+                           => DCLabeled a -> DC (Either Failure (Value DCLabel))
+gitstarInsertLabeledRecord =
+  gitstarInsertOrSaveLabeledRecord insertLabeledRecord
+
+-- | Save a record into the gitstar database, using privileges to
+-- downgrade the current label for the save.
+gitstarSaveRecord :: DCRecord a => a -> DC (Either Failure ())
+gitstarSaveRecord = gitstarInsertOrSaveRecord saveRecord
+
+-- | Save a labeled record into the gitstar database, using privileges to
+-- downgrade the current label for the save.
+gitstarSaveLabeledRecord :: DCLabeledRecord a
+                           => DCLabeled a -> DC (Either Failure ())
+gitstarSaveLabeledRecord = gitstarInsertOrSaveLabeledRecord saveLabeledRecord
 
 --
 -- Key model
@@ -182,20 +224,22 @@ getOrCreateUser uName = do
   case mres of
     Just usr -> return usr
     _ -> do res <- insertRecordP privs policy newUser
-            either (fail "Failed to create user") (const $ return newUser) res
+            either (err "Failed to create user") (const $ return newUser) res
     where newUser = User { userName = uName
                          , userKeys = []
                          , userProjects = []
                          , userFullName = Nothing
                          , userCity = Nothing
                          , userWebsite = Nothing
-                         , userGravatar = Nothing
-                         }
+                         , userGravatar = Nothing }
+          err m _ = throwIO . userError $ m
 
 -- | Execute a \"toLabeled\" gate with gitstar prvileges
-gitstarSafeToLabeled :: DCLabeled (Document DCLabel) 
-                     -> (Document DCLabel -> DC a) -> DC (DCLabeled a)
-gitstarSafeToLabeled ldoc act = do
+-- Note this downgrades the current label of the inner computation and
+-- so privileges and so should not be exported.
+gitstarToLabeled :: DCLabeled (Document DCLabel)
+                 -> (Document DCLabel -> DC a) -> DC (DCLabeled a)
+gitstarToLabeled ldoc act = do
   (GitstarPolicy privs _) <- gitstar
   gateToLabeled privs ldoc act
 
@@ -203,11 +247,11 @@ gitstarSafeToLabeled ldoc act = do
 -- labeld user (endorsed by the policy). The projects and actual user
 -- id are not modified if present in the document.
 partialUserUpdate :: UserName
-                  -> DCLabeled (Document DCLabel) 
+                  -> DCLabeled (Document DCLabel)
                   -> DC (DCLabeled User)
 partialUserUpdate username ldoc = do
   user <- getOrCreateUser username
-  gitstarSafeToLabeled ldoc $ \partialDoc -> 
+  gitstarToLabeled ldoc $ \partialDoc ->
         -- Do not touch the user name and projects:
     let doc0 = (exclude ["projects", "_id"] partialDoc)
         doc1 = toDocument user
@@ -220,7 +264,7 @@ partialUserUpdate username ldoc = do
 addUserKey :: UserName -> DCLabeled (Document DCLabel) -> DC (DCLabeled User)
 addUserKey username ldoc = do
   user <- getOrCreateUser username
-  gitstarSafeToLabeled ldoc $ \doc -> do
+  gitstarToLabeled ldoc $ \doc -> do
     -- generate a new key id:
     newId <- genObjectId
     -- The key value is expected to be a string, which we convert to
@@ -264,9 +308,9 @@ projectsCollection p = collectionP p "projects" lpub colClearance $
                 r = case projectReaders proj of
                       Left Public -> (<>)
                       Right rs -> listToComponent [listToDisj $
-                                    (projectOwner proj):(rs ++ collabs)]
+                                    projectOwner proj:(rs ++ collabs)]
             in newDC (owner p .\/. r)
-                     ((projectOwner proj) .\/.  owner p)
+                     (projectOwner proj .\/.  owner p)
 
 -- | Data type denoting public projects
 data Public = Public
@@ -322,6 +366,8 @@ instance DCRecord Project where
 
   collectionName _ = "projects"
 
+instance DCLabeledRecord Project where
+
 -- | Convert document to either.
 readersDocToEither :: UserDefined -> Either Public [UserName]
 readersDocToEither (UserDefined bs) = 
@@ -333,10 +379,115 @@ readersDocToEither (UserDefined bs) =
 readersEitherToDoc :: Either Public [UserName] -> UserDefined
 readersEitherToDoc = UserDefined . S8.pack . show
 
+-- | Given a username and a labeled document corresponding to a key,
+-- find the user in the DB and return a 'User' value with the key
+-- added. The resultant value is endorsed by the policy/service.
+mkProject :: UserName -> DCLabeled (Document DCLabel)
+              -> DC (DCLabeled Project)
+mkProject username ldoc = do
+  void $ getOrCreateUser username
+  gitstarToLabeled ldoc $ \doc ->
+    let doc' = projectFormatFields doc
+    -- create project object:
+    in fromDocument $ merge [ "owner"  =: username ] doc'
+
+-- | Convert HTTP input parameters to correct (DCRecord) format
+projectFormatFields :: Document DCLabel -> Document DCLabel
+projectFormatFields doc0 =
+  let doc1 = if hasField "collaborators"
+               then fixCollabs doc0
+               else doc0
+      doc2 = if hasField "public"
+               then merge [ "readers" =:
+                             (readersEitherToDoc $ Left Public)] doc1
+               else if hasField "readers"
+                      then fixReaders doc1
+                      else doc1
+  in doc2
+  where hasField f = foldl (\a (k := _) -> (k == u f) || a) False doc0
+        fixCollabs d =
+          let cs = fromCSList . fromJust $ lookup (u "collaborators") d
+          in merge ["collaborators" =: cs] d
+        fixReaders d =
+          let rs = fromCSList . fromJust $ lookup (u "readers") d
+          in merge ["readers" =: (readersEitherToDoc $ Right rs)] d
+        --
+        fromCSList rs = map strip $ split ',' rs
+        strip = filter (not . isSpace)
+
+-- | Given a user name and project ID, associate the project with the
+-- user, if it's not already.
+updateUserWithProjId :: UserName -> ProjectId -> DC ()
+updateUserWithProjId username oid = do
+  policy@(GitstarPolicy privs _) <- gitstar
+  muser <- findBy policy  "users"    "_id" username
+  mproj <- findBy policy  "projects" "_id" oid
+  case (muser, mproj) of
+    (Just usr, Just proj) -> do
+      unless (username == projectOwner proj) $ err "User is not project owner"
+      let projIds = userProjects usr
+          newUser = usr { userProjects = oid : projIds }
+      when (oid `notElem` projIds) $ void $ saveRecordP privs policy newUser
+    _ -> err  "Expected valid user and project"
+  where err = throwIO . userError
+
+-- | Given a user name, project name, and partial project document,
+-- retrive the project and merge the provided fields.
+partialProjectUpdate :: UserName
+                     -> ProjectName
+                     -> DCLabeled (Document DCLabel)
+                     -> DC (DCLabeled Project)
+partialProjectUpdate username projname ldoc = do
+  policy <- gitstar
+  mproj <- findWhere policy $ select [ "name" =: projname
+                                     , "owner" =: username ]
+                                     "projects"
+  case mproj of
+    Just (proj@Project{}) -> gitstarToLabeled ldoc $ \doc ->
+             -- Do not touch the user name and projects:
+         let doc0 = projectFormatFields $ exclude ["_id"] doc
+             doc1 = toDocument proj
+         in fromDocument $ merge doc0 doc1 -- create new user
+    _ -> err  "Expected valid user and project"
+  where err = throwIO . userError
+
 
 --
 -- Misc
 --
 
+-- | Like 'read', but does not fail hard.
 maybeRead :: Read a => String -> Maybe a
 maybeRead = fmap fst . listToMaybe . reads
+
+-- | Split a string into list of strings given a separator.
+split   :: Char -> String -> [String]
+split _ [] = []
+split c s =  case dropWhile (==c) s of
+                "" -> []
+                s' -> w : split c s''
+                      where (w, s'') = break (==c) s'
+
+-- | Insert or save a labeled record using gitstar privileges to
+-- untaint the current label (for the duration of the insert or save).
+gitstarInsertOrSaveRecord :: DCRecord a
+  => (GitstarPolicy -> a -> DC (Either Failure b))
+  -> a
+  -> DC (Either Failure b)
+gitstarInsertOrSaveRecord f rec = do
+  policy@(GitstarPolicy privs _) <- gitstar
+  l <- getLabel
+  withLabel privs (newDC (<>) (integrity l)) $ f policy rec
+
+-- | Insert or save a labeled record using gitstar privileges to
+-- untaint the current label (for the duration of the insert or save)
+-- and record.
+gitstarInsertOrSaveLabeledRecord :: DCLabeledRecord a
+  => (GitstarPolicy -> DCLabeled a -> DC (Either Failure b))
+  -> DCLabeled a
+  ->  DC (Either Failure b)
+gitstarInsertOrSaveLabeledRecord f lrec = do
+  policy@(GitstarPolicy privs _) <- gitstar
+  lcur <- getLabel
+  lrec' <- untaintLabeledP privs (newDC (<>) (integrity . labelOf $ lrec)) lrec
+  withLabel privs (newDC (<>) (integrity lcur)) $ f policy lrec'

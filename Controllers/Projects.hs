@@ -21,34 +21,28 @@ import LIO.MonadCatch
 
 import Hails.Database.MongoDB (select, (=:))
 
-import Data.Maybe (fromJust, fromMaybe, isJust)
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy.Char8 as L8
 import Data.IterIO.Http
 import Data.IterIO.Http.Support
 
 import Hails.App
-import Hails.Data.LBson (cast', ObjectId, encodeDoc)
+import Hails.Data.LBson (cast', encodeDoc)
 import Hails.IterIO.HttpClient
 
-import Control.Monad (liftM, void, unless)
+import Control.Monad (unless)
 
 import Config
 
 data ProjectsController = ProjectsController
 
-contentType :: Monad m => Action t b m S8.ByteString
-contentType = do
-  mctype <- requestHeader "accept"
-  return $ fromMaybe "text/plain" mctype
-
-instance RestController t b DC ProjectsController where
-  restShow _ projectName = do
+instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
+  restShow _ projName = do
     policy <- liftLIO gitstar
     privs <- getPolicyPrivIfUserIsGitstar policy
     uName <- getParamVal "user_name"
     mProj <- liftLIO $ findWhereP privs policy $
-                select [ "name" =: L8.unpack projectName
+                select [ "name" =: L8.unpack projName
                        , "owner" =: uName ] "projects"
     with404orJust mProj $ \proj -> do
       atype <- requestHeader "accept"
@@ -63,38 +57,33 @@ instance RestController t b DC ProjectsController where
             else return noPrivs
 
 
-  restEdit _ projectName = do
+  restEdit _ projName = do
     policy <- liftLIO gitstar
-    uName <- getParamVal "user_name"
-    mProj <- liftLIO $ findWhere policy $
-                select [ "name" =: L8.unpack projectName
-                       , "owner" =: uName ] "projects"
-    with404orJust mProj $ \proj -> renderHtml $ editProject proj
+    curUsr <- getHailsUser
+    uName  <- getParamVal "user_name"
+    if curUsr /= uName
+      then respondStat stat403
+      else do mProj <- liftLIO $ findWhere policy $
+                          select [ "name" =: L8.unpack projName
+                                 , "owner" =: uName ] "projects"
+              with404orJust mProj $ \proj -> renderHtml $ editProject proj
 
   -- /projects/new
   restNew _ = renderHtml newProject
 
   restCreate _ = do
     policy <- liftLIO gitstar
-    curUser <- getHailsUser
-    pOwner <- getHailsUser
-    pName  <- getParamVal "name"
-    pPub   <- isJust `liftM` param "public"
-    pRedrs <- maybe [] fromCSList `liftM` param "readers"
-    pDesc  <- getParamVal "description"
-    pColls <- maybe [] fromCSList `liftM` param "collaborators"
-    let proj = Project { projectId            = Nothing
-                       , projectName          = pName 
-                       , projectOwner         = pOwner
-                       , projectDescription   = pDesc 
-                       , projectCollaborators = pColls
-                       , projectReaders       = if pPub then Left Public
-                                                        else Right pRedrs } 
-    privs <- appGetPolicyPriv policy
-    exists <- projExists privs policy pOwner pName
+    uName  <- getHailsUser
+    ldoc   <- bodyToLDoc
+    lproj  <- liftLIO $ mkProject uName ldoc
+    proj   <- liftLIO $ unlabel lproj
+    let pOwner = projectOwner proj
+        pName  = projectName  proj
+
+    exists <- projExists policy pOwner pName
+
     if exists
-      then redirectTo "/projects/new"
-           --TODO: print error "Project with this name exists"
+      then redirectBack --TODO: print error "Project with this name exists"
       else do let url = gitstar_ssh_web_url ++ "repos/" ++ pOwner ++ "/" ++ pName
                   req0 = postRequest url "application/none" L8.empty
                   authHdr = ( S8.pack "authorization"
@@ -102,47 +91,29 @@ instance RestController t b DC ProjectsController where
                   acceptHdr = (S8.pack "accept", S8.pack "application/bson")
                   req  = req0 {reqHeaders = authHdr: acceptHdr: reqHeaders req0}
               erf <- liftLIO $ do
-                resp <- simpleHttpP privs req L8.empty
+                res <- gitstarInsertLabeledRecord lproj
+                resp <- simpleHttp req L8.empty
                 unless (respStatusDC resp == stat200) $ throwIO . userError
                                                       $ "SSH Web server failure"
-                insertRecordP privs policy proj
+                return res
               case erf of
                 Right r -> do
-                  maybe (return ()) (\oid -> do
-                   oldU <- liftLIO $ getOrCreateUser curUser
-                   let usr = oldU {userProjects = Just oid : userProjects oldU}
-                   void . liftLIO $ saveRecordP privs policy usr) $ cast' r
+                  liftLIO $ maybe (return ())
+                                  (updateUserWithProjId uName) $ cast' r
                   redirectTo $ "/" ++ pOwner ++ "/" ++ pName
                 _      -> respondStat stat500
-      where projExists priv policy owner projName = do
+      where projExists policy owner projName = do
               let qry = select ["name" =: projName, "owner" =: owner] "projects"
-              mproj <- liftLIO $ findWhereP priv policy qry
+              mproj <- liftLIO $ findWhere policy qry
               return $ case mproj of
                          (Just (Project {})) -> True
                          _                   -> False
 
   restUpdate _ projName = do
-    policy <- liftLIO gitstar
-    uName <- getParamVal "user_name"
-    projM <- liftLIO $ findWhere policy $ select [ "name" =: L8.unpack projName
-                                                 , "owner" =: uName]
-                                                 "projects"
-    case projM of
-      Just proj -> do
-        pPub   <- isJust `liftM` param "public"
-        pRedrs <- maybe [] fromCSList `liftM` param "readers"
-        pDesc  <- getParamVal "description"
-        pColls <- maybe [] fromCSList `liftM` param "collaborators"
-        let projFinal = proj { projectDescription   = pDesc 
-                             , projectCollaborators = pColls
-                             , projectReaders       = if pPub then Left Public
-                                                              else Right pRedrs
-                             }
-        privs <- appGetPolicyPriv policy
-        erf <- liftLIO $ saveRecordP privs policy projFinal
-        case erf of
-          Right _ -> redirectTo $ "/" ++ projectOwner projFinal ++
-                                  "/" ++ projectName projFinal
-          _      -> respondStat stat500
-      Nothing -> respond404
-
+    uName  <- getHailsUser
+    ldoc   <- bodyToLDoc
+    let pName = L8.unpack projName
+    res    <- liftLIO $ do lproj <- partialProjectUpdate uName pName ldoc
+                           gitstarSaveLabeledRecord lproj
+    either (const redirectBack)
+           (const $ redirectTo $ "/" ++ uName ++ "/" ++ L8.unpack projName) res
