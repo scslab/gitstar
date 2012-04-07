@@ -62,8 +62,11 @@ application user content = docTypeHtml $ do
                 li $ a ! href "/keys/" $ do
                   span ! class_ "icon-lock" $ ""
                   " Manage keys"
-     div ! class_ "container" $ do
-       content
+     div ! class_ "row" $
+       div ! id "flash-messages" ! class_ "span4 offset4" $ ""
+     div ! class_ "container" $ content
      script ! src "/static/js/jquery.js" $ ""
+     script ! src "/static/js/jquery.cookie.js" $ ""
      script ! src "/static/js/bootstrap.min.js" $ ""
+     script ! src "/static/js/flash.js" $ ""
 
