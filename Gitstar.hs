@@ -9,6 +9,7 @@ import Data.Monoid
 import Hails.App
 import Controllers
 import Data.IterIO.Http.Support
+import Control.Monad (void)
 
 server :: AppReqHandler
 server = runAction $ do
@@ -16,11 +17,9 @@ server = runAction $ do
   prms0 <- params
   body <- getBody >>= (liftLIO . unlabel)
   prms1 <- parseParams' req body
-  setParams $ prms1 ++ prms0
+  void . setParams $ prms1 ++ prms0
   runActionRoute $ mconcat 
     [ routeTop $ routeAction welcome
---    , routeName "static" $
---        routeFileSys systemMimeMap (dirRedir "index.html") "static"
     --
     , routeMethod "GET" $ routePattern "/repos/:user_name/:project_name" $ mconcat
         [ routeName "branches" $ routeAction repoShowBranches

@@ -15,9 +15,7 @@ import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (id, label, form, span)
 
 import Data.Maybe
-import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy.Char8 as L8
-import Hails.Data.LBson (Binary(..), ObjectId)
 import Hails.Crypto
 
 showUser :: User -> [Project] -> Html
@@ -40,7 +38,7 @@ showUser user projs = do
       _ -> ""
     case userWebsite user of
       Just website -> do
-        "Website: "
+        void "Website: "
         a ! href (toValue website) $ toHtml website
         br
       _ -> ""
