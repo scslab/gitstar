@@ -52,7 +52,7 @@ instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
         _ -> renderHtml $ showProject proj
     where getPolicyPrivIfUserIsGitstar policy = do
           usr <- getHailsUser
-          if usr == ("gitstar" :: String) -- ssh server is making request
+          if usr == "gitstar" -- ssh server is making request
             then appGetPolicyPriv policy
             else return noPrivs
 
