@@ -79,9 +79,11 @@ bodyToLDoc = do
 -- Flash notifications
 --
 
+-- | This sets the @_flash-*@ cookie value to the given message, with
+-- a unique message ID.
 flash :: String -> String -> Action t b DC ()
 flash n msg = do
-  oid <- liftLIO $ genObjectId
+  oid <- liftLIO genObjectId
   modify $ \s ->
     let flashHeader = (S8.pack "Set-Cookie",
           S8.pack $ "_flash-" ++ n ++ "=" ++ show oid ++ "," ++ msg)
