@@ -22,7 +22,6 @@ import Control.Monad.Trans.State
 
 import LIO
 import LIO.DCLabel
-import LIO.TCB
 
 import Hails.App
 import Data.IterIO.Http (respAddHeader)
