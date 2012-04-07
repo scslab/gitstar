@@ -83,7 +83,7 @@ instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
     exists <- projExists policy pOwner pName
 
     if exists
-      then redirectBack --TODO: print error "Project with this name exists"
+      then redirectBack >> flashError "Project already exists!" 
       else do let url = gitstar_ssh_web_url ++ "repos/" ++ pOwner ++ "/" ++ pName
                   req0 = postRequest url "application/none" L8.empty
                   authHdr = ( S8.pack "authorization"
@@ -101,6 +101,7 @@ instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
                   liftLIO $ maybe (return ())
                                   (updateUserWithProjId uName) $ cast' r
                   redirectTo $ "/" ++ pOwner ++ "/" ++ pName
+                  flashSuccess "Project created successfully!" 
                 _      -> respondStat stat500
       where projExists policy owner projName = do
               let qry = select ["name" =: projName, "owner" =: owner] "projects"
