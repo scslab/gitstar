@@ -79,6 +79,8 @@ instance PrivilegeGrantGate GitstarPolicy where
                   else noPrivs
                       
 
+instance MkToLabeledDocument GitstarPolicy where
+  mkToLabeledDocument (GitstarPolicy privs _) = toDocumentP privs
     
 
 -- | Extract the principal of a DCLabel singleton component.
