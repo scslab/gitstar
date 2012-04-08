@@ -4,6 +4,7 @@
 #endif
 {-# LANGUAGE OverloadedStrings, DeriveDataTypeable #-}
 {-# LANGUAGE MultiParamTypeClasses, IncoherentInstances #-}
+-- | This module export the core gitstar model and types.
 module Policy.Gitstar ( gitstar
                       , GitstarPolicy
                       -- * Privileged insert/delete
@@ -12,12 +13,13 @@ module Policy.Gitstar ( gitstar
                       , gitstarSaveRecord
                       , gitstarSaveLabeledRecord
                       -- * Projects
-                      , ProjectId, Project(..), Public(..), GitstarApp(..)
+                      , ProjectName, ProjectId, Project(..), Public(..)
+                      , GitstarApp(..)
                       , mkProject
                       , updateUserWithProjId
                       , partialProjectUpdate
                       -- * Users
-                      , UserName, User(..), SSHKey(..)
+                      , UserName, Url, User(..), SSHKey(..)
                       , getOrCreateUser
                       , partialUserUpdate 
                       , addUserKey 
@@ -50,6 +52,8 @@ import LIO.MonadCatch
 gitstar :: DC GitstarPolicy
 gitstar = mkPolicy
 
+-- | Internal gitstar policy. Only the type constructor should be
+-- exported as to avoid leaking the privilege.
 data GitstarPolicy = GitstarPolicy TCBPriv (Database DCLabel)
   deriving (Typeable)
 
