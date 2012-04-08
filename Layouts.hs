@@ -6,28 +6,25 @@
 
 module Layouts where
 
-
 import LIO
 import Policy.Gitstar
-import Control.Monad
 import Data.Maybe
-import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy.Char8 as L8
 import Data.IterIO.Http.Support
 
+import Hails.App
 import Hails.Crypto
 
 import Prelude hiding (head, id, div, span)
 import Text.Blaze.Html5 hiding (map)
-import Text.Blaze.Html5.Attributes hiding (title, span)
+import Text.Blaze.Html5.Attributes hiding (title, span, content)
 import qualified Text.Blaze.Renderer.Utf8 as R (renderHtml)
-import Data.IterIO.Http.Support.Responses
 
-renderHtml body = do
-  policy <- liftLIO gitstar
-  uName <- (S8.unpack . fromJust) `liftM` requestHeader "x-hails-user"
+renderHtml :: Html -> Action t b DC ()
+renderHtml htmlBody = do
+  uName <- getHailsUser
   user <- liftLIO $ getOrCreateUser uName
-  render "text/html" $ R.renderHtml $ application user body
+  render "text/html" $ R.renderHtml $ application user htmlBody
 
 stylesheet :: String -> Html
 stylesheet uri = link ! rel "stylesheet" ! type_ "text/css" ! href (toValue uri)

@@ -36,12 +36,11 @@ formProject mproj = do
   let act = toValue $ (maybe "/projects" (\proj -> "/" ++ projectOwner proj ++ "/" ++ projectName proj) mproj)
   form ! action act ! method "POST" $ do
     case mproj of
-      Just _ -> return ()
-      Nothing -> do
-        div $ do
-          label "Name"
-          input ! type_ "text" ! name "name"
-    div $ do
+      Just _ -> return () 
+      Nothing -> div $ do
+                   label "Name"
+                   input ! type_ "text" ! name "name"
+    div $
       label ! class_ "checkbox" $ do
         if projIsPub then
           input ! type_ "checkbox" ! name "public"
@@ -51,16 +50,16 @@ formProject mproj = do
     div $ do
       label "Readers"
       input ! type_ "text" ! name "readers"
-            ! value (toValue $ readers)
+            ! value (toValue readers)
     div $ do
       label "Description"
-      textarea ! name "description" $ toHtml $ maybe "" id $ do
-        maybe Nothing (Just . projectDescription) mproj
+      textarea ! name "description" $ toHtml $
+        maybe "" projectDescription mproj
     div $ do
       label "Collaborators"
       input ! type_ "text" ! name "collaborators"
-            ! value (toValue $ collaborators)
-    div $ do
+            ! value (toValue collaborators)
+    div $
       button ! type_ "submit" $ "Submit"
         where projIsPub = maybe False isPublic mproj
               collaborators =
@@ -75,7 +74,7 @@ editProject proj = do
     toHtml $ projectName proj
     unless (isPublic proj) $
       i ! class_ "icon-lock" ! title "Private project" $ ""
-  p $ a ! href (toValue $ "/projects/" ++ (show . projectObjId $ proj)) $ "view"
+  p $ a ! href (toValue $ "/" ++ projectOwner proj ++ "/" ++ projectName proj) $ "view"
   formProject $ Just proj
 
 newProject :: Html
