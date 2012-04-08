@@ -28,5 +28,6 @@ Library
   Exposed-modules:
     Policy.Gitstar
     Gitstar.Repo
+    Gitstar.Repo.Types
   Other-modules:
     Config
