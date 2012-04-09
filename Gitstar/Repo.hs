@@ -50,10 +50,10 @@ import Gitstar.Repo.Types
 
 -- | Given user name, project name return  the branches as a list of
 -- (branch-name, branch-hash) pairs
-getBranches :: Project -> DC (Maybe [(String, SHA1)])
+getBranches :: Repo -> DC (Maybe [(String, SHA1)])
 getBranches proj = do
-  mdoc   <- mkRequestToGitstarSsh (projectOwner proj)
-                                  (projectName proj) "/branches"
+  mdoc   <- mkRequestToGitstarSsh (repoOwner proj)
+                                  (repoName proj) "/branches"
   case mdoc of
     Just ds -> let vs = concatMap (\(_ Bson.:= (Array v)) -> v) ds
                in return $ forM vs $ \(Doc d) -> do
@@ -64,10 +64,10 @@ getBranches proj = do
     _ -> return Nothing
 
 -- | Given a project and SHA1 of object return the corresponding blob
-getBlob :: Project -> SHA1 -> DC (Maybe GitBlob)
+getBlob :: Repo -> SHA1 -> DC (Maybe GitBlob)
 getBlob proj sha = do
-  mdoc <- mkRequestToGitstarSsh (projectOwner proj)
-                                (projectName proj) $ "/git/blobs/" ++ show sha
+  mdoc <- mkRequestToGitstarSsh (repoOwner proj)
+                                (repoName proj) $ "/git/blobs/" ++ show sha
   case mdoc of
     Just doc -> return $ do
       d <- Bson.lookup "data" doc
@@ -79,10 +79,10 @@ getBlob proj sha = do
 
 -- | Given a project and SHA1 of tag return the corresponding
 -- tag object
-getTag :: Project -> SHA1 -> DC (Maybe GitTag)
+getTag :: Repo -> SHA1 -> DC (Maybe GitTag)
 getTag proj sha = do
-  mdoc <- mkRequestToGitstarSsh (projectOwner proj)
-                                (projectName proj) $ "/git/tags/" ++ show sha
+  mdoc <- mkRequestToGitstarSsh (repoOwner proj)
+                                (repoName proj) $ "/git/tags/" ++ show sha
   case mdoc of
     Just doc -> return $ do
       d       <- Bson.lookup "data" doc
@@ -108,9 +108,9 @@ getAuthor d = do
 
 -- | Given user name, project name return the tags as a list of
 -- (tag-name, branch-hash) pairs
-getTags :: Project -> DC (Maybe [(String, SHA1)])
+getTags :: Repo -> DC (Maybe [(String, SHA1)])
 getTags proj = do
-  mdoc   <- mkRequestToGitstarSsh (projectOwner proj) (projectName proj) "/tags"
+  mdoc   <- mkRequestToGitstarSsh (repoOwner proj) (repoName proj) "/tags"
   case mdoc of
     Just ds -> let vs = concatMap (\(_ Bson.:= Array v) -> v) ds
                in return $ forM vs $ \(Doc d) -> do
@@ -122,10 +122,10 @@ getTags proj = do
 
 -- | Given a project and SHA1 of commit return the corresponding
 -- commit object
-getCommit :: Project -> SHA1 -> DC (Maybe GitCommit)
+getCommit :: Repo -> SHA1 -> DC (Maybe GitCommit)
 getCommit proj sha = do
-  mdoc <- mkRequestToGitstarSsh (projectOwner proj)
-                                (projectName proj) $ "/git/commits/" ++ show sha
+  mdoc <- mkRequestToGitstarSsh (repoOwner proj)
+                                (repoName proj) $ "/git/commits/" ++ show sha
   case mdoc of
     Just doc -> return $ do
       d         <- Bson.lookup "data" doc
@@ -146,10 +146,10 @@ getCommit proj sha = do
 
 -- | Given a project and SHA1 of tree return the corresponding
 -- tree object
-getTree :: Project -> SHA1 -> DC (Maybe GitTree)
+getTree :: Repo -> SHA1 -> DC (Maybe GitTree)
 getTree proj sha = do
-  mdoc <- mkRequestToGitstarSsh (projectOwner proj)
-                                (projectName proj) $ "/git/trees/" ++ show sha
+  mdoc <- mkRequestToGitstarSsh (repoOwner proj)
+                                (repoName proj) $ "/git/trees/" ++ show sha
   case mdoc of
     Just doc -> return $ do d  <- Bson.lookup "data" doc
                             ps <- Bson.lookup "tree" d
@@ -188,10 +188,10 @@ readGitMode s | s == "040000"        = Directory
   
 
 -- | Given user name, project name return the refs
-getRefs :: Project -> Url -> DC (Maybe [GitRef])
+getRefs :: Repo -> Url -> DC (Maybe [GitRef])
 getRefs proj suffix = do
-  mdoc   <- mkRequestToGitstarSsh (projectOwner proj) 
-                                  (projectName proj) $ "/git/refs" ++ suffix
+  mdoc   <- mkRequestToGitstarSsh (repoOwner proj) 
+                                  (repoName proj) $ "/git/refs" ++ suffix
   case mdoc of
     Just doc -> return $ do rs  <- Bson.lookup "data" doc
                             mapM mkRef rs

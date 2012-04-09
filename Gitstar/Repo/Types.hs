@@ -5,7 +5,9 @@
 -- | Basic git types. The current interface does not interpret types
 -- such as dates or mime types. Inteface is based on the "git-object"
 -- package.
-module Gitstar.Repo.Types ( GitObject(..)
+module Gitstar.Repo.Types ( Repo(..)
+                           -- * Git specific
+                          , GitObject(..)
                           , GitType(..), GitMode(..)
                           , GitBlob(..)
                           , GitTree, GitTreeEntry(..)
@@ -18,6 +20,10 @@ module Gitstar.Repo.Types ( GitObject(..)
 
 import Data.ByteString (ByteString)
 import System.Posix.Types (FileMode)
+
+data Repo = Repo { repoName  :: String -- ^ Project name
+                 , repoOwner :: String -- ^ Project owner
+                 } deriving (Eq, Show)
 
 -- | SHA1 digest
 newtype SHA1 = SHA1 String deriving(Eq)
