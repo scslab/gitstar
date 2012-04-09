@@ -346,7 +346,7 @@ instance DCRecord Project where
     pName  <- lookup (u "name") doc
     pOwner <- lookup (u "owner") doc
     pDesc  <- lookup (u "description") doc
-    pColls <- lookup (u "collaborators") doc
+    let pColls = fromMaybe [] $ lookup (u "collaborators") doc
     let pRedrs = fromMaybe [] $ lookup (u "readers") doc
     let pPub = case look (u "public") doc of
                 Just v | v == (val False) -> False
