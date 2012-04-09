@@ -347,7 +347,11 @@ instance DCRecord Project where
     pOwner <- lookup (u "owner") doc
     pDesc  <- lookup (u "description") doc
     pColls <- lookup (u "collaborators") doc
-    pRedrs <- lookup (u "readers") doc
+    let pRedrs = fromMaybe [] $ lookup (u "readers") doc
+    let pPub = case look (u "public") doc of
+                Just v | v == (val False) -> False
+                       | otherwise -> True
+                Nothing -> False
 
     return $ Project
       { projectId            = lookup (u "_id") doc
@@ -355,7 +359,9 @@ instance DCRecord Project where
       , projectOwner         = pOwner
       , projectDescription   = pDesc 
       , projectCollaborators = pColls
-      , projectReaders       = readersDocToEither pRedrs }
+      , projectReaders       = if pPub then
+                                Left Public
+                                else Right pRedrs }
 
   toDocument proj =
     (maybe [] (\i -> [(u "_id") =: i]) $ projectId proj)
@@ -364,22 +370,12 @@ instance DCRecord Project where
     , (u "owner")         =: projectOwner proj
     , (u "description")   =: projectDescription proj
     , (u "collaborators") =: projectCollaborators proj
-    , (u "readers")       =: readersEitherToDoc (projectReaders proj) ]
+    , (u "readers")       =: either (const []) id (projectReaders proj)
+    , (u "public")        =: either (const True) (const False) (projectReaders proj)]
 
   collectionName _ = "projects"
 
 instance DCLabeledRecord Project where
-
--- | Convert document to either.
-readersDocToEither :: UserDefined -> Either Public [UserName]
-readersDocToEither (UserDefined bs) = 
-  case maybeRead . S8.unpack $ bs of
-    Nothing -> error "readersDocToEither: failed to parse"
-    Just e  -> e
-
--- | Convert either to document.
-readersEitherToDoc :: Either Public [UserName] -> UserDefined
-readersEitherToDoc = UserDefined . S8.pack . show
 
 -- | Given a username and a labeled document corresponding to a key,
 -- find the user in the DB and return a 'User' value with the key
@@ -389,33 +385,8 @@ mkProject :: UserName -> DCLabeled (Document DCLabel)
 mkProject username ldoc = do
   void $ getOrCreateUser username
   gitstarToLabeled ldoc $ \doc ->
-    let doc' = projectFormatFields doc
     -- create project object:
-    in fromDocument $ merge [ "owner"  =: username ] doc'
-
--- | Convert HTTP input parameters to correct (DCRecord) format
-projectFormatFields :: Document DCLabel -> Document DCLabel
-projectFormatFields doc0 =
-  let doc1 = if hasField "collaborators"
-               then fixCollabs doc0
-               else doc0
-      doc2 = if hasField "public"
-               then merge [ "readers" =:
-                             (readersEitherToDoc $ Left Public)] doc1
-               else if hasField "readers"
-                      then fixReaders doc1
-                      else doc1
-  in doc2
-  where hasField f = foldl (\a (k := _) -> (k == u f) || a) False doc0
-        fixCollabs d =
-          let cs = fromCSList . fromJust $ lookup (u "collaborators") d
-          in merge ["collaborators" =: cs] d
-        fixReaders d =
-          let rs = fromCSList . fromJust $ lookup (u "readers") d
-          in merge ["readers" =: (readersEitherToDoc $ Right rs)] d
-        --
-        fromCSList rs = map strip $ split ',' rs
-        strip = filter (not . isSpace)
+    fromDocument $ merge [ "owner"  =: username ] doc
 
 -- | Given a user name and project ID, associate the project with the
 -- user, if it's not already.
@@ -447,9 +418,12 @@ partialProjectUpdate username projname ldoc = do
   case mproj of
     Just (proj@Project{}) -> gitstarToLabeled ldoc $ \doc ->
              -- Do not touch the user name and projects:
-         let doc0 = projectFormatFields $ exclude ["_id"] doc
-             doc1 = toDocument proj
-         in fromDocument $ merge doc0 doc1 -- create new user
+         let doc0 = exclude ["_id"] doc
+             doc1 = case look (u "public") doc0 of
+                      Just _ -> doc0
+                      Nothing -> ("public" =: False):doc0
+             doc2 = toDocument proj
+         in fromDocument $ merge doc1 doc2 -- create new user
     _ -> err  "Expected valid user and project"
   where err = throwIO . userError
 

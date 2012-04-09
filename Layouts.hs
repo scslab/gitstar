@@ -66,4 +66,5 @@ application user content = docTypeHtml $ do
        content
      script ! src "/static/js/jquery.js" $ ""
      script ! src "/static/js/bootstrap.min.js" $ ""
+     script ! src "/static/js/application.js" $ ""
 
