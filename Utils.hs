@@ -15,13 +15,16 @@ import Data.IterIO.Http.Support
 import Hails.Database.MongoDB ( Document
                               , grantPriv, PrivilegeGrantGate
                               , labeledDocI )
+import Hails.Data.LBson (genObjectId)
 
 import Control.Monad
+import Control.Monad.Trans.State
 
 import LIO
 import LIO.DCLabel
 
 import Hails.App
+import Data.IterIO.Http (respAddHeader)
 
 
 -- | Force get parameter value
@@ -69,3 +72,27 @@ bodyToLDoc = do
  req  <- getHttpReq
  body <- getBody
  liftLIO $ labeledDocI req body
+
+
+--
+-- Flash notifications
+--
+
+-- | This sets the @_flash-*@ cookie value to the given message, with
+-- a unique message ID.
+flash :: String -> String -> Action t b DC ()
+flash n msg = do
+  oid <- liftLIO genObjectId
+  modify $ \s ->
+    let flashHeader = (S8.pack "Set-Cookie",
+          S8.pack $ "_flash-" ++ n ++ "=" ++ show oid ++ "," ++ msg)
+    in s { actionResp = respAddHeader flashHeader (actionResp s)}
+
+flashInfo :: String -> Action t b DC ()
+flashInfo = flash "info"
+
+flashError :: String -> Action t b DC ()
+flashError = flash "error"
+
+flashSuccess :: String -> Action t b DC ()
+flashSuccess = flash "success"
