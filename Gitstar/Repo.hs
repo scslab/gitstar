@@ -22,11 +22,9 @@ module Gitstar.Repo ( -- * Branches and refs
 
 import Prelude hiding (lookup)
 import Policy.Gitstar
-import Config
 
 import Control.Monad
 
-import LIO
 import LIO.DCLabel
 
 import qualified Hails.Data.LBson.Rexports.Bson as Bson
@@ -36,14 +34,10 @@ import Hails.Database.MongoDB hiding ( Action
                                      , drop
                                      , isPrefixOf
                                      , length)
-import Hails.Database.MongoDB.Structured
 
 import Data.List (isPrefixOf)
-import Data.IterIO.Http
-import Hails.IterIO.HttpClient
 
 import qualified Data.ByteString.Char8 as S8
-import qualified Data.ByteString.Lazy.Char8 as L8
 
 import Gitstar.Repo.Types
 
@@ -52,7 +46,7 @@ import Gitstar.Repo.Types
 -- (branch-name, branch-hash) pairs
 getBranches :: Repo -> DC (Maybe [(String, SHA1)])
 getBranches proj = do
-  mdoc   <- mkRequestToGitstarSsh (repoOwner proj)
+  mdoc   <- gitstarRepoHttp (repoOwner proj)
                                   (repoName proj) "/branches"
   case mdoc of
     Just ds -> let vs = concatMap (\(_ Bson.:= (Array v)) -> v) ds
@@ -66,7 +60,7 @@ getBranches proj = do
 -- | Given a project and SHA1 of object return the corresponding blob
 getBlob :: Repo -> SHA1 -> DC (Maybe GitBlob)
 getBlob proj sha = do
-  mdoc <- mkRequestToGitstarSsh (repoOwner proj)
+  mdoc <- gitstarRepoHttp (repoOwner proj)
                                 (repoName proj) $ "/git/blobs/" ++ show sha
   case mdoc of
     Just doc -> return $ do
@@ -81,7 +75,7 @@ getBlob proj sha = do
 -- tag object
 getTag :: Repo -> SHA1 -> DC (Maybe GitTag)
 getTag proj sha = do
-  mdoc <- mkRequestToGitstarSsh (repoOwner proj)
+  mdoc <- gitstarRepoHttp (repoOwner proj)
                                 (repoName proj) $ "/git/tags/" ++ show sha
   case mdoc of
     Just doc -> return $ do
@@ -110,7 +104,7 @@ getAuthor d = do
 -- (tag-name, branch-hash) pairs
 getTags :: Repo -> DC (Maybe [(String, SHA1)])
 getTags proj = do
-  mdoc   <- mkRequestToGitstarSsh (repoOwner proj) (repoName proj) "/tags"
+  mdoc   <- gitstarRepoHttp (repoOwner proj) (repoName proj) "/tags"
   case mdoc of
     Just ds -> let vs = concatMap (\(_ Bson.:= Array v) -> v) ds
                in return $ forM vs $ \(Doc d) -> do
@@ -124,7 +118,7 @@ getTags proj = do
 -- commit object
 getCommit :: Repo -> SHA1 -> DC (Maybe GitCommit)
 getCommit proj sha = do
-  mdoc <- mkRequestToGitstarSsh (repoOwner proj)
+  mdoc <- gitstarRepoHttp (repoOwner proj)
                                 (repoName proj) $ "/git/commits/" ++ show sha
   case mdoc of
     Just doc -> return $ do
@@ -148,7 +142,7 @@ getCommit proj sha = do
 -- tree object
 getTree :: Repo -> SHA1 -> DC (Maybe GitTree)
 getTree proj sha = do
-  mdoc <- mkRequestToGitstarSsh (repoOwner proj)
+  mdoc <- gitstarRepoHttp (repoOwner proj)
                                 (repoName proj) $ "/git/trees/" ++ show sha
   case mdoc of
     Just doc -> return $ do d  <- Bson.lookup "data" doc
@@ -190,7 +184,7 @@ readGitMode s | s == "040000"        = Directory
 -- | Given user name, project name return the refs
 getRefs :: Repo -> Url -> DC (Maybe [GitRef])
 getRefs proj suffix = do
-  mdoc   <- mkRequestToGitstarSsh (repoOwner proj) 
+  mdoc   <- gitstarRepoHttp (repoOwner proj) 
                                   (repoName proj) $ "/git/refs" ++ suffix
   case mdoc of
     Just doc -> return $ do rs  <- Bson.lookup "data" doc
@@ -207,36 +201,3 @@ mkRef d = do
   return GitRef { refName = rName
                 , refType = readGitType rType
                 , refPtr  = SHA1 rPtr }
-
-
---
--- Helpers
---
-
--- | Given user name, project name and URL suffix make GET
--- request to gitstar-ssh-web server
--- The request made will be: @GET /repos/usr/proj/urlSuffix@
-mkRequestToGitstarSsh :: UserName
-                      -> ProjectName
-                      -> Url 
-                      -> DC (Maybe BsonDocument)
-mkRequestToGitstarSsh usr proj urlSuffix = do
-  policy <- liftLIO gitstar
-    -- Make sure current user can read:
-  mProj  <- findWhere policy $ select [ "name"  =: proj
-                                      , "owner" =: usr ] "projects"
-  case mProj of
-    Nothing -> return Nothing
-    Just Project{} -> do
-       let url = gitstar_ssh_web_url ++ "repos/" ++ usr ++ "/"
-                                     ++ proj ++ urlSuffix
-           req0 = getRequest url
-           authHdr = (S8.pack "authorization", gitstar_ssh_web_authorization)
-           acceptHdr = (S8.pack "accept", S8.pack "application/bson")
-           req  = req0 {reqHeaders = authHdr : acceptHdr : reqHeaders req0}
-       sshResp <- simpleHttp req L8.empty
-       if respStatusDC sshResp /= stat200
-         then return Nothing
-         else do
-           body <- liftLIO $ extractBody sshResp
-           return . Just . decodeDoc $ body
