@@ -59,6 +59,9 @@ application user content = docTypeHtml $ do
                 li $ a ! href "/projects/new" $ do
                   span ! class_ "icon-folder-open" $ ""
                   " New project"
+                li $ a ! href "/apps/" $ do
+                  span ! class_ "icon-pencil" $ ""
+                  " Manage Apps"
                 li $ a ! href "/keys/" $ do
                   span ! class_ "icon-lock" $ ""
                   " Manage keys"
@@ -68,6 +71,7 @@ application user content = docTypeHtml $ do
      script ! src "/static/js/jquery.js" $ ""
      script ! src "/static/js/jquery.cookie.js" $ ""
      script ! src "/static/js/bootstrap.min.js" $ ""
+     script ! src "/static/js/bootstrap-typeahead.js" $ ""
      script ! src "/static/js/application.js" $ ""
      script ! src "/static/js/flash.js" $ ""
 

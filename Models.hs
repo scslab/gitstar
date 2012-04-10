@@ -4,7 +4,7 @@
 #endif
 
 module Models ( -- * Projects
-                ProjectId, Project(..), Public(..)
+                ProjectId, Project(..), Public(..), GitstarApp(..)
               , isPublic
               , projectRepository
               , projectObjId
@@ -57,7 +57,6 @@ fingerprint key = separate . show $ md5 keyData
                   _          -> error "fingerprint: invalid key"
         keyVal = case sshKeyValue key of
                    (Binary bs) -> bs
-                   _           -> S8.empty
         separate (a:b:c:xs) = a:b:':':separate (c:xs)
         separate a = a
         lazyfy = L8.pack . S8.unpack
