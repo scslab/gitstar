@@ -346,6 +346,7 @@ data Project = Project {
 data GitstarApp = GitstarApp {
     appId          :: String
   , appName        :: String
+  , appTitle       :: String
   , appUrl         :: Url
   , appOwner       :: UserName
   , appDescription :: String
@@ -369,12 +370,14 @@ instance DCRecord GitstarApp where
   fromDocument doc = do
     aId <- lookup (u "_id") doc
     aName <- lookup (u "name") doc
+    aTitle <- lookup (u "title") doc
     aUrl  <- lookup (u "url") doc
     aOwner  <- lookup (u "owner") doc
     aDescription <- lookup (u "description") doc
     return $ GitstarApp
       { appId = aId
       , appName = aName
+      , appTitle = aTitle
       , appUrl    = aUrl
       , appOwner = aOwner
       , appDescription = aDescription
@@ -383,6 +386,7 @@ instance DCRecord GitstarApp where
   toDocument app =
     [ "_id" =: (appId app)
     , "name" =: (appName app)
+    , "title" =: (appTitle app)
     , "owner" =: (appOwner app)
     , "description" =: (appDescription app)
     , "url" =: (appUrl app)]
