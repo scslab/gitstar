@@ -20,16 +20,6 @@ server = runAction $ do
   void . setParams $ prms1 ++ prms0
   runActionRoute $ mconcat 
     [ routeTop $ routeAction welcome
-    --
-    , routeMethod "GET" $ routePattern "/repos/:user_name/:project_name" $ mconcat
-        [ routeName "branches" $ routeAction repoShowBranches
-        , routeName "tags" $ routeAction repoShowTags
-        , routePattern "/git/tags/:id" $ routeAction repoShowGitTag
-        , routePattern "/git/blobs/:id" $ routeAction repoShowGitBlob
-        , routePattern "/git/commits/:id" $ routeAction repoShowGitCommit
-        , routePattern "/git/refs" $ routeAction repoShowGitRefs
-        , routePattern "/git/trees/:id" $ routeAction repoShowGitTree]
-    --
     , routeRestController "apps" AppsController
     , routeRestController "keys" KeysController
     , routeMethod "GET" $ routePattern "/user/edit" $ routeAction userEdit
