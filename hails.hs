@@ -34,9 +34,8 @@ main = do
   env  <- getEnvironment
   opts <- hailsOpts args env
   when (optAbout opts) $ printAbout
-  let appName = optName opts
-      port = optPort opts
-  let func = App.server
+  let port = optPort opts
+      func = App.server
   runTCPServer $ secureHttpServer (fromInteger port) func
 
 --

@@ -25,6 +25,7 @@ import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy.Char8 as L8
 import Data.IterIO.Http
 import Data.IterIO.Http.Support
+import Data.Maybe
 
 import Hails.App
 import Hails.Data.LBson (cast', encodeDoc)
@@ -45,11 +46,13 @@ instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
                 select [ "name" =: L8.unpack projName
                        , "owner" =: uName ] "projects"
     with404orJust mProj $ \proj -> do
+      mas <- liftLIO $ mapM (findBy policy "apps" "_id") (projectApps proj)
+      let apps = map fromJust $ filter isJust mas
       atype <- requestHeader "accept"
       case atype of
         Just "application/bson" ->
           render "application/bson" $ encodeDoc $ toDocument proj
-        _ -> renderHtml $ showProject proj
+        _ -> renderHtml $ showProject proj apps
     where getPolicyPrivIfUserIsGitstar policy = do
           usr <- getHailsUser
           if usr == "gitstar" -- ssh server is making request
@@ -113,9 +116,9 @@ instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
   restUpdate _ projName = do
     uName  <- getHailsUser
     ldoc   <- bodyToLDoc
-    doc <- liftLIO $ unlabel ldoc
     let pName = L8.unpack projName
     res    <- liftLIO $ do lproj <- partialProjectUpdate uName pName ldoc
                            gitstarSaveLabeledRecord lproj
     either (const redirectBack)
            (const $ redirectTo $ "/" ++ uName ++ "/" ++ L8.unpack projName) res
+

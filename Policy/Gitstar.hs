@@ -12,7 +12,7 @@ module Policy.Gitstar ( gitstar
                       , gitstarSaveRecord
                       , gitstarSaveLabeledRecord
                       -- * Projects
-                      , ProjectId, Project(..), Public(..)
+                      , ProjectId, Project(..), Public(..), GitstarApp(..)
                       , mkProject
                       , updateUserWithProjId
                       , partialProjectUpdate
@@ -27,7 +27,6 @@ import Prelude hiding (lookup)
 
 import Control.Monad
 
-import Data.Char (isSpace)
 import Data.Maybe
 import Data.Typeable
 import Hails.Data.LBson hiding ( map, head, break
@@ -61,6 +60,7 @@ instance DatabasePolicy GitstarPolicy where
               c <- col p
               assocCollectionP p c d) db [ projectsCollection
                                          , usersCollection
+                                         , appsCollection
                                          ]
     return $ GitstarPolicy p db'
       where lcollections = newDC (<>) (owner p)
@@ -339,7 +339,66 @@ data Project = Project {
   , projectReaders       :: Either Public [UserName]
     -- ^ Project is either public or private to the readers and
     -- collaborators
+  , projectApps          :: [String]
   } deriving (Show)
+
+data GitstarApp = GitstarApp {
+    appId          :: String
+  -- ^ Unique name for the app (not displayed to user)
+  , appName        :: String
+  -- ^ Descriptive name of app (used to search for apps)
+  , appTitle       :: String
+  -- ^ App title, to be displayed on project tabs
+  , appUrl         :: Url
+  , appOwner       :: UserName
+  , appDescription :: String
+} deriving (Show)
+
+
+-- | Collection keeping track of registered Gitstar Apps
+-- /Security properties:/
+--
+--   * All fields are searchable and everything is publicly readable
+--
+--   * Only gitstar and owner may modify document
+--
+appsCollection :: TCBPriv -> DC (Collection DCLabel)
+appsCollection p = collectionP p "apps" lpub colClearance $
+  RawPolicy (labelForApp . fromJust . fromDocument)
+            [ ("_id",   SearchableField)
+            , ("name",  SearchableField)
+            , ("title", SearchableField)
+            , ("description", SearchableField)
+            , ("owner", SearchableField)
+            ]
+    where colClearance = newDC (<>) (owner p)
+          labelForApp proj = newDC (<>) (owner p .\/. appOwner proj)
+
+instance DCRecord GitstarApp where
+  collectionName = const "apps"
+  fromDocument doc = do
+    aId <- lookup (u "_id") doc
+    aName <- lookup (u "name") doc
+    aTitle <- lookup (u "title") doc
+    aUrl  <- lookup (u "url") doc
+    aOwner  <- lookup (u "owner") doc
+    aDescription <- lookup (u "description") doc
+    return $ GitstarApp
+      { appId = aId
+      , appName = aName
+      , appTitle = aTitle
+      , appUrl    = aUrl
+      , appOwner = aOwner
+      , appDescription = aDescription
+      }
+
+  toDocument app =
+    [ "_id" =: (appId app)
+    , "name" =: (appName app)
+    , "title" =: (appTitle app)
+    , "owner" =: (appOwner app)
+    , "description" =: (appDescription app)
+    , "url" =: (appUrl app)]
 
 instance DCRecord Project where
   fromDocument doc = do
@@ -352,6 +411,7 @@ instance DCRecord Project where
                 Just v | v == (val False) -> False
                        | otherwise -> True
                 Nothing -> False
+    let pApps = fromMaybe [] $ lookup (u "apps") doc
 
     return $ Project
       { projectId            = lookup (u "_id") doc
@@ -361,7 +421,9 @@ instance DCRecord Project where
       , projectCollaborators = pColls
       , projectReaders       = if pPub then
                                 Left Public
-                                else Right pRedrs }
+                                else Right pRedrs
+      , projectApps = pApps
+      }
 
   toDocument proj =
     (maybe [] (\i -> [(u "_id") =: i]) $ projectId proj)
@@ -371,7 +433,8 @@ instance DCRecord Project where
     , (u "description")   =: projectDescription proj
     , (u "collaborators") =: projectCollaborators proj
     , (u "readers")       =: either (const []) id (projectReaders proj)
-    , (u "public")        =: either (const True) (const False) (projectReaders proj)]
+    , (u "public")        =: either (const True) (const False) (projectReaders proj)
+    , (u "apps")          =: projectApps proj]
 
   collectionName _ = "projects"
 
@@ -431,18 +494,6 @@ partialProjectUpdate username projname ldoc = do
 --
 -- Misc
 --
-
--- | Like 'read', but does not fail hard.
-maybeRead :: Read a => String -> Maybe a
-maybeRead = fmap fst . listToMaybe . reads
-
--- | Split a string into list of strings given a separator.
-split   :: Char -> String -> [String]
-split _ [] = []
-split c s =  case dropWhile (==c) s of
-                "" -> []
-                s' -> w : split c s''
-                      where (w, s'') = break (==c) s'
 
 -- | Insert or save a labeled record using gitstar privileges to
 -- untaint the current label (for the duration of the insert or save).
