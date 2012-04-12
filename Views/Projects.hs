@@ -12,11 +12,9 @@ module Views.Projects ( showProject
 
 import Prelude hiding (div, id, span)
 import qualified Prelude
-import Data.Maybe
 import Control.Monad
 
 import Models
-import Data.List (intercalate)
 import Text.Blaze.Html5 hiding (title, style)
 import Text.Blaze.Html5.Attributes hiding (label, form, span)
 
@@ -100,7 +98,7 @@ formProject mproj = do
         collaborators = maybe [] projectCollaborators mproj
         readers = case mproj of
           Nothing -> []
-          Just p -> either (const []) Prelude.id $ projectReaders p
+          Just proj -> either (const []) Prelude.id $ projectReaders proj
 
 editProject :: Project -> Html
 editProject proj = do

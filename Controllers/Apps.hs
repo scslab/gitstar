@@ -9,8 +9,6 @@
 
 module Controllers.Apps ( AppsController(..) ) where
 
-import Control.Monad
-
 import qualified Data.ByteString.Lazy.Char8 as L8
 import Data.IterIO.Http (stat403)
 import Data.IterIO.Http.Support hiding (Action)

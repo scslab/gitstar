@@ -27,7 +27,6 @@ import Prelude hiding (lookup)
 
 import Control.Monad
 
-import Data.Char (isSpace)
 import Data.Maybe
 import Data.Typeable
 import Hails.Data.LBson hiding ( map, head, break
@@ -485,18 +484,6 @@ partialProjectUpdate username projname ldoc = do
 --
 -- Misc
 --
-
--- | Like 'read', but does not fail hard.
-maybeRead :: Read a => String -> Maybe a
-maybeRead = fmap fst . listToMaybe . reads
-
--- | Split a string into list of strings given a separator.
-split   :: Char -> String -> [String]
-split _ [] = []
-split c s =  case dropWhile (==c) s of
-                "" -> []
-                s' -> w : split c s''
-                      where (w, s'') = break (==c) s'
 
 -- | Insert or save a labeled record using gitstar privileges to
 -- untaint the current label (for the duration of the insert or save).

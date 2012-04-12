@@ -116,9 +116,9 @@ instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
   restUpdate _ projName = do
     uName  <- getHailsUser
     ldoc   <- bodyToLDoc
-    doc <- liftLIO $ unlabel ldoc
     let pName = L8.unpack projName
     res    <- liftLIO $ do lproj <- partialProjectUpdate uName pName ldoc
                            gitstarSaveLabeledRecord lproj
     either (const redirectBack)
            (const $ redirectTo $ "/" ++ uName ++ "/" ++ L8.unpack projName) res
+
