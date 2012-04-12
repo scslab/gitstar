@@ -34,18 +34,19 @@ import Config
 import Control.Monad
 
 import Data.Maybe
+import Data.List (isInfixOf)
 import Data.Typeable
 import Hails.Data.LBson hiding ( map, head, break
                                , tail, words, key, filter
                                , dropWhile, split, foldl
-                               , notElem)
+                               , notElem, isInfixOf)
 
 import Hails.App
 import Hails.Database
 import Hails.Database.MongoDB hiding ( Action, map, head, break
                                      , tail, words, key, filter
                                      , dropWhile, split, foldl
-                                     , notElem)
+                                     , notElem, isInfixOf)
 import Hails.Database.MongoDB.Structured
 
 import Data.IterIO.Http
@@ -575,6 +576,8 @@ gitstarRepoHttp usr proj urlSuffix = do
     -- Make sure current user can read:
   mProj  <- findWhere policy $ select [ "name"  =: proj
                                       , "owner" =: usr ] "projects"
+  when (".." `isInfixOf` urlSuffix) $ throwIO . userError $
+    "gitstarRepoHttp: Path must be fully expanded"
   case mProj of
     Nothing -> return Nothing
     Just Project{} -> do

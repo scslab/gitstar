@@ -16,6 +16,12 @@ module Gitstar.Repo ( -- * Branches and refs
                     , getCommit
                       -- * Trees
                     , getTree
+                      -- * Diffs
+                    , getDiffs
+                      -- * Stats
+                    , getStats
+                      -- * Blame
+                    , getBlame
                       -- * Types
                     , module Gitstar.Repo.Types
                     ) where
@@ -42,12 +48,12 @@ import qualified Data.ByteString.Char8 as S8
 import Gitstar.Repo.Types
 
 
--- | Given user name, project name return  the branches as a list of
--- (branch-name, branch-hash) pairs
+-- | Given a repo return the branches as a list of
+-- (branch-name, branch-sha) pairs
 getBranches :: Repo -> DC (Maybe [(String, SHA1)])
 getBranches proj = do
   mdoc   <- gitstarRepoHttp (repoOwner proj)
-                                  (repoName proj) "/branches"
+                            (repoName proj) "/branches"
   case mdoc of
     Just ds -> let vs = concatMap (\(_ Bson.:= (Array v)) -> v) ds
                in return $ forM vs $ \(Doc d) -> do
@@ -61,7 +67,7 @@ getBranches proj = do
 getBlob :: Repo -> SHA1 -> DC (Maybe GitBlob)
 getBlob proj sha = do
   mdoc <- gitstarRepoHttp (repoOwner proj)
-                                (repoName proj) $ "/git/blobs/" ++ show sha
+                          (repoName proj) $ "/git/blobs/" ++ show sha
   case mdoc of
     Just doc -> return $ do
       d <- Bson.lookup "data" doc
@@ -76,7 +82,7 @@ getBlob proj sha = do
 getTag :: Repo -> SHA1 -> DC (Maybe GitTag)
 getTag proj sha = do
   mdoc <- gitstarRepoHttp (repoOwner proj)
-                                (repoName proj) $ "/git/tags/" ++ show sha
+                          (repoName proj) $ "/git/tags/" ++ show sha
   case mdoc of
     Just doc -> return $ do
       d       <- Bson.lookup "data" doc
@@ -119,7 +125,7 @@ getTags proj = do
 getCommit :: Repo -> SHA1 -> DC (Maybe GitCommit)
 getCommit proj sha = do
   mdoc <- gitstarRepoHttp (repoOwner proj)
-                                (repoName proj) $ "/git/commits/" ++ show sha
+                          (repoName proj) $ "/git/commits/" ++ show sha
   case mdoc of
     Just doc -> return $ do
       d         <- Bson.lookup "data" doc
@@ -143,7 +149,7 @@ getCommit proj sha = do
 getTree :: Repo -> SHA1 -> DC (Maybe GitTree)
 getTree proj sha = do
   mdoc <- gitstarRepoHttp (repoOwner proj)
-                                (repoName proj) $ "/git/trees/" ++ show sha
+                          (repoName proj) $ "/git/trees/" ++ show sha
   case mdoc of
     Just doc -> return $ do d  <- Bson.lookup "data" doc
                             ps <- Bson.lookup "tree" d
@@ -185,7 +191,7 @@ readGitMode s | s == "040000"        = Directory
 getRefs :: Repo -> Url -> DC (Maybe [GitRef])
 getRefs proj suffix = do
   mdoc   <- gitstarRepoHttp (repoOwner proj) 
-                                  (repoName proj) $ "/git/refs" ++ suffix
+                            (repoName proj) $ "/git/refs" ++ suffix
   case mdoc of
     Just doc -> return $ do rs  <- Bson.lookup "data" doc
                             mapM mkRef rs
@@ -201,3 +207,84 @@ mkRef d = do
   return GitRef { refName = rName
                 , refType = readGitType rType
                 , refPtr  = SHA1 rPtr }
+
+
+-- | Get all the file changes for a repo and commit id
+getDiffs :: Repo -> SHA1 -> DC (Maybe [GitDiff])
+getDiffs proj sha = do
+  mdoc   <- gitstarRepoHttp (repoOwner proj) 
+                            (repoName proj) $ "/git/commits/" ++ show sha
+                                                              ++ "/diff"
+  case mdoc of
+    Just doc -> return $ do
+      ds <- Bson.lookup "data" doc
+      forM ds $ \d -> do
+           path <- Bson.lookup  "path" d
+           newF <- Bson.lookup "new_file" d
+           delF <- Bson.lookup "deleted_file" d
+           let pathXfm = case () of
+                          _ | newF -> Just NewFile
+                          _ | delF -> Just DeletedFile
+                          _        -> Nothing
+           sIdx  <- Bson.lookup "similarity_index" d
+           diff  <- Bson.lookup "diff" d
+           return GitDiff { diffPath = DiffPath
+                               { dpathName = path
+                               , dpathChanges = pathXfm }
+                          , diffSimilarlityIndex = sIdx
+                          , diffContent = S8.pack diff }
+    _ -> return Nothing
+
+
+
+
+-- | Given a repo and commit id,  return the corresponding stats
+getStats :: Repo -> SHA1 -> DC (Maybe GitStats)
+getStats proj sha = do
+  mdoc   <- gitstarRepoHttp (repoOwner proj)
+                            (repoName proj) $ "/git/commits/" ++ show sha
+                                                              ++ "/stats"
+  case mdoc of
+    Just doc -> return $ do
+      d         <- Bson.lookup "data" doc
+      cmt       <- Bson.lookup "sha" d
+      files     <- Bson.lookup "files" d
+      fstats    <- mapM docToFileStat files
+      adds      <- Bson.lookup "additions" d
+      dels      <- Bson.lookup "deletions" d
+      tots      <- Bson.lookup "total" d
+      return GitStats { statCommit    = SHA1 cmt
+                      , statFiles     = fstats
+                      , statAdditions = adds
+                      , statDeletions = dels
+                      , statTotal     = tots }
+    _ -> return Nothing
+   where docToFileStat d = do
+           file <- Bson.lookup "file" d
+           adds <- Bson.lookup "additions" d
+           dels <- Bson.lookup "deletions" d
+           tots <- Bson.lookup "total" d
+           return GitFileStat { fstatPath = file
+                              , fstatAdditions = adds
+                              , fstatDeletions = dels
+                              , fstatTotal     = tots }
+
+-- | Return the blame for all the lines in a file.
+getBlame :: Repo -> SHA1 -> FilePath -> DC (Maybe GitBlame)
+getBlame proj sha file = do
+  mdoc   <- gitstarRepoHttp (repoOwner proj)
+                            (repoName proj) $ "/git/blame/" ++ show sha
+                                                            ++ "/" ++ file
+  case mdoc of
+    Just doc -> return $ do
+      ds <- Bson.lookup "data" doc
+      forM ds $ \d -> do
+        no   <- Bson.lookup "lineno" d
+        oNo  <- Bson.lookup "old_lineno" d
+        line <- Bson.lookup "line" d
+        cmt  <- Bson.lookup "commit" d
+        return GitBlameLine { blmLineNr    = no
+                            , blmOldLineNr = oNo
+                            , blmLine      = S8.pack line
+                            , blmCommit    = SHA1 cmt }
+    _ -> return Nothing

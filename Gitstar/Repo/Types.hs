@@ -6,7 +6,7 @@
 -- such as dates or mime types. Inteface is based on the "git-object"
 -- package.
 module Gitstar.Repo.Types ( Repo(..)
-                           -- * Git specific
+                           -- * Git object specific
                           , GitObject(..)
                           , GitType(..), GitMode(..)
                           , GitBlob(..)
@@ -16,6 +16,10 @@ module Gitstar.Repo.Types ( Repo(..)
                           , GitTag(..)
                           , SHA1(..)
                           , Author(..)
+                          -- * Git diff, blame, stats
+                          , GitDiff(..), PathChanges(..), DiffPath(..)
+                          , GitStats(..), GitFileStat(..)
+                          , GitBlame, GitBlameLine(..)
                           ) where
 
 import Data.ByteString (ByteString)
@@ -110,3 +114,53 @@ data GitTag = GitTag { tagPtr     :: SHA1
                      , tagAuthor  :: Author
                      -- ^ Tag author
                      } deriving (Eq, Show)
+
+
+--
+-- Git diff, blame, stats
+--
+
+-- | Transformation to a file pat
+data PathChanges = DeletedFile          -- ^ File deleted
+                 | NewFile              -- ^ File is new
+                 deriving (Eq, Show)
+
+-- | A path and any recorded transformations
+data DiffPath = DiffPath { dpathName    :: FilePath
+                         -- ^ Name of file
+                         , dpathChanges :: Maybe PathChanges
+                         -- ^ Path transformations
+                         } deriving (Eq, Show)
+
+-- | A diff object contains the path, similarity index, and actual
+-- changes.
+data GitDiff = GitDiff { diffPath :: DiffPath        -- ^ Path of file
+                       , diffSimilarlityIndex :: Int -- ^ Similarity index
+                       , diffContent :: ByteString   -- ^ Actual diff
+                       } deriving (Eq, Show)
+
+
+-- | Git commit status
+data GitStats = GitStats { statCommit    :: SHA1       -- ^ Commit id
+                         , statFiles     :: [GitFileStat] -- ^ Actual stat files
+                         , statAdditions :: Int        -- ^ Number of additions
+                         , statDeletions :: Int        -- ^ Number of deletions
+                         , statTotal     :: Int        -- ^ Number of changes
+                         } deriving (Eq, Show)
+
+-- | Status of a file
+data GitFileStat = GitFileStat { fstatPath :: FilePath -- ^ File name
+                               , fstatAdditions :: Int -- ^ Number of additions
+                               , fstatDeletions :: Int -- ^ Number of deletions
+                               , fstatTotal     :: Int -- ^ Number of changes
+                               } deriving (Eq, Show)
+
+-- | A blame is a list of line blames
+type GitBlame = [GitBlameLine]
+
+-- | Blame data for a line of a file
+data GitBlameLine = GitBlameLine { blmLineNr    :: Int  -- ^ Current line number
+                                 , blmOldLineNr :: Int  -- ^ Old line umber
+                                 , blmLine      :: ByteString -- ^ Line content
+                                 , blmCommit    :: SHA1 -- ^ Reponsible commit
+                                 } deriving (Eq, Show)
