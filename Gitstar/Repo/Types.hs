@@ -59,8 +59,9 @@ data GitObject = GoBlob   GitBlob   -- ^ blob
 
 -- | Blob is simply a ByteString
 data GitBlob = GitBlob { blobContent :: ByteString
-                       -- ^ Actual blob
+                       -- ^ Base64-encoded blob
                        , blobMimeType :: String
+                       -- ^ Mime type from git
                        } deriving (Eq, Show)
 
 
