@@ -10,6 +10,31 @@ p {
   font-size: 110%;
 }
 
+.nav-pills {
+  border-bottom: 1px solid #ccc;
+}
+
+.nav-pills > li a {
+  font-family: "Ubuntu", sans-serif;
+  border: 1px solid #ccc;
+  border-right: 1px solid #ccc;
+}
+
+.nav-pills > .active a {
+  border: 0px;
+}
+
+.project_app {
+  width: 100%;
+  height: 370px;
+  border: 0px;
+}
+
+#add_app {
+  width: 50%;
+  margin: 0 auto;
+}
+
 .nav img {
   border: 1px solid white;
   height: 22px;

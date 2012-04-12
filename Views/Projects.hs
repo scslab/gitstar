@@ -15,12 +15,11 @@ import qualified Prelude
 import Control.Monad
 
 import Models
-import Data.List (intercalate)
-import Text.Blaze.Html5 hiding (title)
+import Text.Blaze.Html5 hiding (title, style)
 import Text.Blaze.Html5.Attributes hiding (label, form, span)
 
-showProject :: Project -> Html
-showProject proj = do
+showProject :: Project -> [GitstarApp] -> Html
+showProject proj apps = do
   h1 $ do
     toHtml $ projectName proj
     unless (isPublic proj) $
@@ -29,8 +28,23 @@ showProject proj = do
   p ! class_ "well" $ toHtml $ let desc = projectDescription proj
                                in if null desc then "No description" else desc
   p $ toHtml $ "Repo: " ++ projectRepository proj
-  h2 "Collaborators"
-  ul $ forM_ (projectCollaborators proj) (li . toHtml)
+  ul ! id "apps" ! class_ "nav nav-pills" $ do
+    forM apps $ \app -> do
+      li $ a ! class_ "external" ! href (toValue $ appUrl app) $ toHtml $ appName app
+    li $ a ! href "#add_app" $ do "Add "; span ! class_ "icon-plus" $ ""
+  iframe ! class_ "project_app" ! src "" $ ""
+  div ! id "add_app" ! class_ "project_app" ! style "display: none" $ do
+    h2 $ "Add an app to your project"
+    div $ do
+      input ! type_ "search" ! id "app_search" ! placeholder "Search for an app"
+            ! dataAttribute "provide" "typeahead"
+    form ! action (toValue $ "/" ++ projectOwner proj ++ "/" ++ projectName proj)
+         ! method "POST" ! id "project" ! style "display: none" $ do
+      div ! id "app_description" $ ""
+      forM apps $ \app -> do
+        input ! type_ "hidden" ! name "apps[]" ! value (toValue $ appId app)
+      input ! type_ "hidden" ! name "apps[]" ! id "new_app"
+      input ! type_ "submit" ! class_ "btn btn-primary" ! value "Add"
 
 formProject :: Maybe Project -> Html
 formProject mproj = do
@@ -84,7 +98,7 @@ formProject mproj = do
         collaborators = maybe [] projectCollaborators mproj
         readers = case mproj of
           Nothing -> []
-          Just p -> either (const []) Prelude.id $ projectReaders p
+          Just proj -> either (const []) Prelude.id $ projectReaders proj
 
 editProject :: Project -> Html
 editProject proj = do

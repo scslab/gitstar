@@ -30,6 +30,7 @@ server = runAction $ do
         , routePattern "/git/refs" $ routeAction repoShowGitRefs
         , routePattern "/git/trees/:id" $ routeAction repoShowGitTree]
     --
+    , routeRestController "apps" AppsController
     , routeRestController "keys" KeysController
     , routeMethod "GET" $ routePattern "/user/edit" $ routeAction userEdit
     , routeMethod "POST" $ routePattern "/user" $ routeAction userUpdate
