@@ -344,14 +344,24 @@ data Project = Project {
 
 data GitstarApp = GitstarApp {
     appId          :: String
+  -- ^ Unique name for the app (not displayed to user)
   , appName        :: String
+  -- ^ Descriptive name of app (used to search for apps)
   , appTitle       :: String
+  -- ^ App title, to be displayed on project tabs
   , appUrl         :: Url
   , appOwner       :: UserName
   , appDescription :: String
 } deriving (Show)
 
 
+-- | Collection keeping track of registered Gitstar Apps
+-- /Security properties:/
+--
+--   * All fields are searchable and everything is publicly readable
+--
+--   * Only gitstar and owner may modify document
+--
 appsCollection :: TCBPriv -> DC (Collection DCLabel)
 appsCollection p = collectionP p "apps" lpub colClearance $
   RawPolicy (labelForApp . fromJust . fromDocument)
