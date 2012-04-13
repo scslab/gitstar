@@ -4,6 +4,8 @@
 #endif
 {-# LANGUAGE OverloadedStrings, DeriveDataTypeable #-}
 {-# LANGUAGE MultiParamTypeClasses, IncoherentInstances #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
+-- | This module export the core gitstar model and types.
 module Policy.Gitstar ( gitstar
                       , GitstarPolicy
                       -- * Privileged insert/delete
@@ -12,37 +14,46 @@ module Policy.Gitstar ( gitstar
                       , gitstarSaveRecord
                       , gitstarSaveLabeledRecord
                       -- * Projects
-                      , ProjectId, Project(..), Public(..), GitstarApp(..)
-                      , mkProject
+                      , ProjectName, ProjectId, Project(..), Public(..)
+                      , GitstarApp(..)
+                      , mkProject, createProject
                       , updateUserWithProjId
                       , partialProjectUpdate
                       -- * Users
-                      , UserName, User(..), SSHKey(..)
+                      , UserName, Url, User(..), SSHKey(..)
                       , getOrCreateUser
                       , partialUserUpdate 
                       , addUserKey 
+                      -- * HTTP access to git API
+                      , gitstarRepoHttp
                       ) where
 
 import Prelude hiding (lookup)
+import Config
 
 import Control.Monad
 
 import Data.Maybe
+import Data.List (isInfixOf)
 import Data.Typeable
 import Hails.Data.LBson hiding ( map, head, break
                                , tail, words, key, filter
                                , dropWhile, split, foldl
-                               , notElem)
+                               , notElem, isInfixOf)
 
 import Hails.App
 import Hails.Database
 import Hails.Database.MongoDB hiding ( Action, map, head, break
                                      , tail, words, key, filter
                                      , dropWhile, split, foldl
-                                     , notElem)
+                                     , notElem, isInfixOf)
 import Hails.Database.MongoDB.Structured
 
+import Data.IterIO.Http
+import Hails.IterIO.HttpClient
+
 import qualified Data.ByteString.Char8 as S8
+import qualified Data.ByteString.Lazy.Char8 as L8
 
 import LIO.MonadCatch
 
@@ -50,6 +61,8 @@ import LIO.MonadCatch
 gitstar :: DC GitstarPolicy
 gitstar = mkPolicy
 
+-- | Internal gitstar policy. Only the type constructor should be
+-- exported as to avoid leaking the privilege.
 data GitstarPolicy = GitstarPolicy TCBPriv (Database DCLabel)
   deriving (Typeable)
 
@@ -490,10 +503,37 @@ partialProjectUpdate username projname ldoc = do
     _ -> err  "Expected valid user and project"
   where err = throwIO . userError
 
+-- | Class used to crete gitstar projects
+class CreteProject a where
+  -- | Given a project, or labeled project insert it into the database
+  -- and make a request to gitstar service to actually initialize the
+  -- bare repository
+  createProject :: a -> DC (Either Failure (Value DCLabel))
+
+instance CreteProject Project where
+  createProject proj = do
+    res <- gitstarInsertRecord proj
+    when (isRight res) $
+      gitstarCreateRepo (projectOwner proj) (projectName proj)
+    return res
+
+instance CreteProject (DCLabeled Project) where
+  createProject lproj = do
+    res <- gitstarInsertLabeledRecord lproj
+    when (isRight res) $ do
+      proj <- unlabel lproj
+      gitstarCreateRepo (projectOwner proj) (projectName proj)
+    return res
+
 
 --
 -- Misc
 --
+
+-- | True if value is a 'Right'
+isRight :: Either a b -> Bool
+isRight (Right _) = True
+isRight _         = False
 
 -- | Insert or save a labeled record using gitstar privileges to
 -- untaint the current label (for the duration of the insert or save).
@@ -518,3 +558,55 @@ gitstarInsertOrSaveLabeledRecord f lrec = do
   lcur <- getLabel
   lrec' <- untaintLabeledP privs (newDC (<>) (integrity . labelOf $ lrec)) lrec
   withLabel privs (newDC (<>) (integrity lcur)) $ f policy lrec'
+
+--
+-- Repo related
+--
+
+-- | Given user name, project name and URL suffix make GET request 
+-- to gitstar-ssh-web server. This is the low-lever interface to
+-- accessing git objects.
+-- The request made will be: @GET /repos/usr/proj/urlSuffix@
+gitstarRepoHttp :: UserName
+                -> ProjectName
+                -> Url
+                -> DC (Maybe BsonDocument)
+gitstarRepoHttp usr proj urlSuffix = do
+  policy <- gitstar
+    -- Make sure current user can read:
+  mProj  <- findWhere policy $ select [ "name"  =: proj
+                                      , "owner" =: usr ] "projects"
+  when (".." `isInfixOf` urlSuffix) $ throwIO . userError $
+    "gitstarRepoHttp: Path must be fully expanded"
+  case mProj of
+    Nothing -> return Nothing
+    Just Project{} -> do
+       let url = gitstar_ssh_web_url ++ "repos/" ++ usr ++ "/"
+                                     ++ proj ++ urlSuffix
+           req = getRequest url
+       sshResp <- mkGitstarHttpReqTCB req
+       if respStatusDC sshResp /= stat200
+         then return Nothing
+         else do body <- liftLIO $ extractBody sshResp
+                 return . Just . decodeDoc $ body
+
+-- | Send request to create a repository
+gitstarCreateRepo :: UserName
+                  -> ProjectName
+                  -> DC ()
+gitstarCreateRepo usr proj = do
+  let url = gitstar_ssh_web_url ++ "repos/" ++ usr ++ "/" ++ proj
+      req = postRequest url "application/none" L8.empty
+  resp <- mkGitstarHttpReqTCB req
+  unless (respStatusDC resp == stat200) $
+    throwIO . userError $ "SSH Web server failure"
+
+-- | Make empty-body request to the gitstar API server
+mkGitstarHttpReqTCB :: HttpReq () -> DC HttpRespDC
+mkGitstarHttpReqTCB req0 = do
+  (GitstarPolicy privs _) <- gitstar
+  let authHdr = ( S8.pack "authorization"
+                , gitstar_ssh_web_authorization)
+      acceptHdr = (S8.pack "accept", S8.pack "application/bson")
+      req  = req0 {reqHeaders = authHdr: acceptHdr: reqHeaders req0}
+  simpleHttpP privs req L8.empty

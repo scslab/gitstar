@@ -17,11 +17,9 @@ import Views.Projects
 
 import LIO
 import LIO.DCLabel
-import LIO.MonadCatch
 
 import Hails.Database.MongoDB (select, (=:))
 
-import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy.Char8 as L8
 import Data.IterIO.Http
 import Data.IterIO.Http.Support
@@ -29,11 +27,6 @@ import Data.Maybe
 
 import Hails.App
 import Hails.Data.LBson (cast', encodeDoc)
-import Hails.IterIO.HttpClient
-
-import Control.Monad (unless)
-
-import Config
 
 data ProjectsController = ProjectsController
 
@@ -87,18 +80,7 @@ instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
 
     if exists
       then redirectBack >> flashError "Project already exists!" 
-      else do let url = gitstar_ssh_web_url ++ "repos/" ++ pOwner ++ "/" ++ pName
-                  req0 = postRequest url "application/none" L8.empty
-                  authHdr = ( S8.pack "authorization"
-                            , gitstar_ssh_web_authorization)
-                  acceptHdr = (S8.pack "accept", S8.pack "application/bson")
-                  req  = req0 {reqHeaders = authHdr: acceptHdr: reqHeaders req0}
-              erf <- liftLIO $ do
-                res <- gitstarInsertLabeledRecord lproj
-                resp <- simpleHttp req L8.empty
-                unless (respStatusDC resp == stat200) $ throwIO . userError
-                                                      $ "SSH Web server failure"
-                return res
+      else do erf <- liftLIO $ createProject lproj
               case erf of
                 Right r -> do
                   liftLIO $ maybe (return ())
