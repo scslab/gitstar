@@ -28,6 +28,7 @@ showProject proj apps = do
   p ! class_ "well" $ toHtml $ let desc = projectDescription proj
                                in if null desc then "No description" else desc
   p $ toHtml $ "Repo: " ++ projectRepository proj
+  p $ toHtml (show apps)
   ul ! id "apps" ! class_ "nav nav-pills" $ do
     forM apps $ \app -> do
       li $ a ! class_ "external" ! href (toValue $ appUrl app ++ projectOwner proj ++ "/" ++ projectName proj) $ toHtml $ appName app
