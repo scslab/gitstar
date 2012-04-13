@@ -162,7 +162,7 @@ mkTreeOrBlob d = do
   tPath <- Bson.lookup "path" d
   tMode <- Bson.lookup "mode" d
   tType <- Bson.lookup "type" d
-  let tSize = Bson.lookup "type" d
+  let tSize = Bson.lookup "size" d
   tPtr  <- Bson.lookup "sha"  d
   return GitTreeEntry { entPath = tPath
                       , entMode = readGitMode tMode
