@@ -30,7 +30,7 @@ showProject proj apps = do
   p $ toHtml $ "Repo: " ++ projectRepository proj
   ul ! id "apps" ! class_ "nav nav-pills" $ do
     forM apps $ \app -> do
-      li $ a ! class_ "external" ! href (toValue $ appUrl app) $ toHtml $ appName app
+      li $ a ! class_ "external" ! href (toValue $ appUrl app ++ projectOwner proj ++ "/" ++ projectName proj) $ toHtml $ appName app
     li $ a ! href "#add_app" $ do "Add "; span ! class_ "icon-plus" $ ""
   iframe ! class_ "project_app" ! src "" $ ""
   div ! id "add_app" ! class_ "project_app" ! style "display: none" $ do

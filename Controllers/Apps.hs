@@ -30,7 +30,7 @@ instance RestController t (DCLabeled L8.ByteString) DC AppsController where
       policy <- gitstar
       eapps <- withDB policy $ do
         cur <- find $ select [ "owner" =: uName ] "apps"
-        convertToApps cur []
+        cursorToApps cur []
       either (fail . show) return $ eapps
     renderHtml $ appsIndex apps
 
@@ -63,13 +63,15 @@ instance RestController t (DCLabeled L8.ByteString) DC AppsController where
       redirectTo "/apps"
       else respondStat stat403
 
-convertToApps :: Cursor DCLabel -> [GitstarApp] -> Action DCLabel TCBPriv () [GitstarApp]
-convertToApps cur arr = do
+-- | Unlabels each document in the result set of a cursor and
+-- transforms it to a 'GitstarApp'.
+cursorToApps :: Cursor DCLabel -> [GitstarApp] -> Action DCLabel TCBPriv () [GitstarApp]
+cursorToApps cur arr = do
   nc <- next cur
   case nc of
     Just ldoc -> do
       doc <- liftLIO $ unlabel ldoc
       let resarr = maybe arr (:arr) (fromDocument doc)
-      convertToApps cur $ resarr
+      cursorToApps cur $ resarr
     Nothing -> return $ reverse arr
 
