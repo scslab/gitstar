@@ -72,6 +72,6 @@ cursorToApps cur arr = do
     Just ldoc -> do
       doc <- liftLIO $ unlabel ldoc
       let resarr = maybe arr (:arr) (fromDocument doc)
-      convertToApps cur $ resarr
+      cursorToApps cur $ resarr
     Nothing -> return $ reverse arr
 
