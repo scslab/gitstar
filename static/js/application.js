@@ -58,3 +58,8 @@ $(function() {
   });
 });
 
+
+window.addEventListener("message", function(event) {
+  $("iframe.project_app").css("height", event.data + "px");
+}, false);
+
