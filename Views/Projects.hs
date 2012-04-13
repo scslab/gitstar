@@ -67,7 +67,10 @@ formProject mproj = do
           else input ! type_ "checkbox" ! name "public"
         "Public?"
     div $ do
-      label "Collaborators (can push and pull repo)"
+      label $ do "Collaborators (" 
+                 a ! href "#" ! rel "tooltip"
+                   ! title "Can push and pull repo" $ "?"
+                 ")"
       input ! type_ "text" ! id "new_collaborator"
             ! placeholder "username"
       " "
@@ -80,7 +83,10 @@ formProject mproj = do
               ! value (toValue collaborator)
           a ! href (toValue $ "/" ++ collaborator) $ toHtml collaborator
     div $ do
-      label "Viewers (can only pull from repo)"
+      label $ do "Viewers ("
+                 a ! href "#" ! rel "tooltip"
+                   ! title "Can only pull from repo" $ "?"
+                 ")"
       input ! type_ "text" ! id "new_reader"
             ! placeholder "username"
       " "
