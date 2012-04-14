@@ -88,6 +88,7 @@ formProject mproj = do
       a ! href "#add_collaborator" $ do
         span ! class_ "icon-plus" $ ""
     ul ! id "collaborators" $ do
+      input ! type_ "hidden" ! name "collaborators[]" ! value ""
       forM_ collaborators $ \collaborator -> do
         li $ do
           input ! type_ "hidden" ! name "collaborators[]"
@@ -109,6 +110,7 @@ formProject mproj = do
       a ! href "#add_reader" $ do
         span ! class_ "icon-plus" $ ""
     ul ! id "readers" $ do
+      input ! type_ "hidden" ! name "readers[]" ! value ""
       forM_ readers $ \reader -> do
         li $ do
           input ! type_ "hidden" ! name "readers[]"

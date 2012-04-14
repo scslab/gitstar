@@ -260,8 +260,10 @@ gitstarToLabeled ldoc act = do
   gateToLabeled privs ldoc act
 
 -- | Given a user name and partial document for a 'User', return a
--- labeld user (endorsed by the policy). The projects and actual user
--- id are not modified if present in the document.
+-- labeld user (endorsed by the policy). The projects, user
+-- id, and keys are not modified if present in the document.
+-- To modify the keys use 'addUserKey' and 'delUserKey'.
+-- To modify the projects field use 'updateUserWithProjId'.
 partialUserUpdate :: UserName
                   -> DCLabeled (Document DCLabel)
                   -> DC (DCLabeled User)
@@ -271,7 +273,7 @@ partialUserUpdate username ldoc = do
         -- Do not touch the user name and projects:
     let protected_fields = ["projects", "_id", "keys"]
         doc0 = exclude protected_fields partialDoc
-        doc1 = include protected_fields $ toDocument user
+        doc1 = toDocument user
     in fromDocument $ merge doc0 doc1 -- create new user
 
 
@@ -434,14 +436,14 @@ instance DCRecord Project where
   fromDocument doc = do
     pName  <- lookup (u "name") doc
     pOwner <- lookup (u "owner") doc
-    pDesc  <- lookup (u "description") doc
-    let pColls = fromMaybe [] $ lookup (u "collaborators") doc
-    let pRedrs = fromMaybe [] $ lookup (u "readers") doc
-    let pPub = case look (u "public") doc of
+    let pDesc  = fromMaybe "" $ lookup (u "description") doc
+        pColls = fromMaybe [] $ lookup (u "collaborators") doc
+        pRedrs = fromMaybe [] $ lookup (u "readers") doc
+        pPub = case look (u "public") doc of
                 Just v | v == (val False) -> False
                        | otherwise -> True
                 Nothing -> False
-    let pApps = fromMaybe [] $ lookup (u "apps") doc
+        pApps = fromMaybe [] $ lookup (u "apps") doc
 
     return $ Project
       { projectId            = lookup (u "_id") doc
@@ -499,6 +501,8 @@ updateUserWithProjId username oid = do
 
 -- | Given a user name, project name, and partial project document,
 -- retrive the project and merge the provided fields.
+-- Note that the project id, name, owner and apps fields are kept
+-- constant. To modify the apps, use 'addProjectApp'.
 partialProjectUpdate :: UserName
                      -> ProjectName
                      -> DCLabeled (Document DCLabel)
@@ -510,16 +514,27 @@ partialProjectUpdate username projname ldoc = do
                                      "projects"
   case mproj of
     Just (proj@Project{}) -> gitstarToLabeled ldoc $ \doc ->
-             -- Do not touch the user name and projects:
+             -- Do not touch the project id, name and owner:
          let protected_fields = ["_id", "name", "owner"]
              doc0 = exclude protected_fields doc
              doc1 = case look (u "public") doc0 of
                       Just _ -> doc0
                       Nothing -> ("public" =: False):doc0
-             doc2 = include protected_fields $ toDocument proj
-         in fromDocument $ merge doc1 doc2 -- create new user
+             -- readers/collaborators might correspond to empty list
+             -- which is an input field of form: readers[]=""
+             doc2 = filterEmptyList "readers" $
+                    filterEmptyList "collaborators" doc1
+         in fromDocument $ merge doc2 $ toDocument proj
     _ -> err  "Expected valid user and project"
   where err = throwIO . userError
+        noName :: UserName
+        noName = ""
+        filterEmptyList fld d = 
+          let mv = case lookup fld d of
+                Just [x] | x == noName -> Just []
+                Just xs                -> Just $ filter (/=noName) xs
+                Nothing                -> Nothing
+          in (maybe [] (\v -> [fld =: v]) mv) ++ exclude [fld] d
 
 -- | Class used to crete gitstar projects
 class CreteProject a where
