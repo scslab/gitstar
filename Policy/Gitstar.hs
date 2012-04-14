@@ -268,8 +268,9 @@ partialUserUpdate username ldoc = do
   user <- getOrCreateUser username
   gitstarToLabeled ldoc $ \partialDoc ->
         -- Do not touch the user name and projects:
-    let doc0 = (exclude ["projects", "_id"] partialDoc)
-        doc1 = toDocument user
+    let protected_fields = ["projects", "_id", "keys"]
+        doc0 = exclude protected_fields partialDoc
+        doc1 = include protected_fields $ toDocument user
     in fromDocument $ merge doc0 doc1 -- create new user
 
 
@@ -494,11 +495,12 @@ partialProjectUpdate username projname ldoc = do
   case mproj of
     Just (proj@Project{}) -> gitstarToLabeled ldoc $ \doc ->
              -- Do not touch the user name and projects:
-         let doc0 = exclude ["_id"] doc
+         let protected_fields = ["_id", "name", "owner"]
+             doc0 = exclude protected_fields doc
              doc1 = case look (u "public") doc0 of
                       Just _ -> doc0
                       Nothing -> ("public" =: False):doc0
-             doc2 = toDocument proj
+             doc2 = include protected_fields $ toDocument proj
          in fromDocument $ merge doc1 doc2 -- create new user
     _ -> err  "Expected valid user and project"
   where err = throwIO . userError
