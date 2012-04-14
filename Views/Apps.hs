@@ -33,10 +33,16 @@ appForm mapp user =
       input ! type_ "text" ! name "title"
             ! value (toValue $ maybe "" appTitle mapp)
     div $ do
-      label "URL"
+      label $ do "URL (" 
+                 a ! href "#" ! rel "tooltip"
+                   ! title (toValue (
+                              "Variables $user and $project in the URL will be"
+                           ++ " replaced by the username and projectname,"
+                           ++ " respectively." :: String)) $ "?"
+                 ")"
       input ! type_ "url" ! name "url"
             ! value (toValue $ maybe "" appUrl mapp)
-      "?repo=user/repo"
+            ! placeholder "http://app.gitstar.com/$user/$project"
     div $ do
       label "Description"
       textarea ! name "description" $ toHtml $
