@@ -15,8 +15,13 @@ import qualified Prelude
 import Control.Monad
 
 import Models
+import Data.String.Utils
 import Text.Blaze.Html5 hiding (title, style)
 import Text.Blaze.Html5.Attributes hiding (label, form, span)
+
+transformAppUrl :: String -> String -> String -> String
+transformAppUrl url user proj =
+  replace "$user" user $ replace "$project" proj url
 
 showProject :: Project -> [GitstarApp] -> Html
 showProject proj apps = do
@@ -28,10 +33,11 @@ showProject proj apps = do
   p ! class_ "well" $ toHtml $ let desc = projectDescription proj
                                in if null desc then "No description" else desc
   p $ toHtml $ "Repo: " ++ projectRepository proj
-  p $ toHtml (show apps)
   ul ! id "apps" ! class_ "nav nav-pills" $ do
     forM apps $ \app -> do
-      li $ a ! class_ "external" ! href (toValue $ appUrl app ++ projectOwner proj ++ "/" ++ projectName proj) $ toHtml $ appName app
+      li $ a ! class_ "external"
+             ! href (toValue $ transformAppUrl (appUrl app) (projectOwner proj) (projectName proj))
+             $ toHtml $ appName app
     li $ a ! href "#add_app" $ do "Add "; span ! class_ "icon-plus" $ ""
   iframe ! class_ "project_app" ! src "" $ ""
   div ! id "add_app" ! class_ "project_app" ! style "display: none" $ do
