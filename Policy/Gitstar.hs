@@ -24,6 +24,7 @@ module Policy.Gitstar ( gitstar
                       , getOrCreateUser
                       , partialUserUpdate 
                       , addUserKey 
+                      , delUserKey 
                       -- * HTTP access to git API
                       , gitstarRepoHttp
                       ) where
@@ -292,6 +293,21 @@ addUserKey username ldoc = do
     return $ user { userKeys = key : userKeys user }
       where mkKeyValueBinary doc = 
               (Binary . S8.pack) `liftM` lookup (u "value")  doc
+
+-- | Given a username and a labeled document containing the key id,
+-- find the user in the DB and return a 'User' value with the key
+-- delete. The resultant value is endorsed by the policy/service.
+delUserKey :: UserName -> DCLabeled (Document DCLabel) -> DC (DCLabeled User)
+delUserKey username ldoc = do
+  user <- getOrCreateUser username
+  gitstarToLabeled ldoc $ \doc -> do
+    let mkId = lookup "_delete" doc >>= maybeRead
+        keys = case mkId of
+                 Just kId -> filter ((/=kId) . sshKeyId) $ userKeys user
+                 _ -> userKeys user
+    return $ user { userKeys = keys }
+      where maybeRead :: Read a => String -> Maybe a
+            maybeRead = fmap fst . listToMaybe . reads
 
 
 --

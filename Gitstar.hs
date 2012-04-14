@@ -21,6 +21,8 @@ server = runAction $ do
   runActionRoute $ mconcat 
     [ routeTop $ routeAction welcome
     , routeRestController "apps" AppsController
+    , routeMethod "POST" $ routePattern "/keys/delete" $
+        routeAction $ restDestroy KeysController undefined
     , routeRestController "keys" KeysController
     , routeMethod "GET" $ routePattern "/user/edit" $ routeAction userEdit
     , routeMethod "POST" $ routePattern "/user" $ routeAction userUpdate

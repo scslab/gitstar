@@ -56,8 +56,21 @@ instance RestController t (DCLabeled L.ByteString) DC KeysController where
 
   restCreate _ = do
     uName  <- getHailsUser
-    ldoc   <- bodyToLDoc 
+    ldoc   <- bodyToLDoc
     void . liftLIO $ do luser  <- addUserKey uName ldoc
                         policy <- gitstar
                         saveLabeledRecord policy luser
     redirectTo "/keys"
+
+  restDestroy _ _ = do
+    uName <- getHailsUser
+    ldoc  <- bodyToLDoc
+    u0 <- liftLIO $ getOrCreateUser uName
+    u1 <- liftLIO $ do luser  <- delUserKey uName ldoc
+                       policy <- gitstar
+                       saveLabeledRecord policy luser
+                       unlabel luser
+    redirectBack
+    if u0 == u1
+      then flashError "User keys were not changed."
+      else flashSuccess "Deleted key!"

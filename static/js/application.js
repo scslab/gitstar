@@ -1,4 +1,5 @@
 $(function() {
+  /* Add/remove collaborators*/
   $("a[href='#add_collaborator']").click(function() {
     field = $("input#new_collaborator")
     if (field.val()) {
@@ -24,6 +25,7 @@ $(function() {
     return false;
   });
 
+  /* Add/remove readers*/
   $("a[href='#add_reader']").click(function() {
     field = $("input#new_reader")
     if (field.val()) {
@@ -45,6 +47,7 @@ $(function() {
     return false;
   });
 
+  /* Handle public vs. readers */
   $("input[type='checkbox'][name='public']").change( function () {
     isPub = $(this).is(':checked');
     $("#new_reader").prop('disabled',isPub);
@@ -54,6 +57,17 @@ $(function() {
     return false;
   });
 
+  /* Handle key deletion */
+  $("a[href='#del_key']").live("click", function() {
+    form = $("#del_keys")
+    form.append("<input type='hidden' name='_delete' value='"
+                + $(this).data("key") + "'/>");
+    form.submit()
+    return false;
+  });
+
+
+  /* Handle apps */
   function swapTo(elm) {
     $(".nav-pills > li").removeClass("active");
     elm.addClass("active");
