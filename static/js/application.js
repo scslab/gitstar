@@ -41,7 +41,13 @@ $(function() {
 
 
   $("input[data-provide='typeahead']#app_search").typeahead({
-    source: [{_id: "gitstar-viewer", title: "Code", url: "http://viewer.lvh.me:8081", description: "A simple code viewer for Gitstar.", name: "Code Viewer", owner: "alevy"}],
+    source: function(typeahead, query) {
+      return ($.getJSON("/apps", {q: query},
+        function(data) {
+            return typeahead.process(data);
+          }
+        ));
+    },
     items: 10,
     property: "name",
     onselect: function(obj) {
