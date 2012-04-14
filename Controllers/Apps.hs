@@ -10,6 +10,9 @@
 module Controllers.Apps ( AppsController(..) ) where
 
 import qualified Data.ByteString.Lazy.Char8 as L8
+import qualified Data.ByteString as S
+import Data.Map (fromList, Map)
+import qualified Data.Aeson as JSON (encode)
 import Data.IterIO.Http (stat403)
 import Data.IterIO.Http.Support hiding (Action)
 import Policy.Gitstar
@@ -25,14 +28,31 @@ data AppsController = AppsController
 
 instance RestController t (DCLabeled L8.ByteString) DC AppsController where
   restIndex _ = do
-    uName <- getHailsUser
-    apps <- liftLIO $ do
-      policy <- gitstar
-      eapps <- withDB policy $ do
-        cur <- find $ select [ "owner" =: uName ] "apps"
-        cursorToApps cur []
-      either (fail . show) return $ eapps
-    renderHtml $ appsIndex apps
+    atype <- requestHeader "accept"
+    case atype >>= (S.findSubstring "application/json") of
+      Just _ -> do
+        apps <- liftLIO $ do
+          policy <- gitstar
+          eapps <- withDB policy $ do
+            cur <- find $ select [] "apps"
+            cursorToApps cur []
+          either (fail . show) return $ eapps
+        render "application/json" $ JSON.encode $ Prelude.map (\app ->
+          fromList [ ("_id", appId app)
+                   , ("title", appTitle app)
+                   , ("name", appName app)
+                   , ("description", appDescription app)
+                   , ("url", appUrl app)
+                   , ("owner", appOwner app)] :: Map String String) apps 
+      _ -> do
+        uName <- getHailsUser
+        apps <- liftLIO $ do
+          policy <- gitstar
+          eapps <- withDB policy $ do
+            cur <- find $ select [ "owner" =: uName ] "apps"
+            cursorToApps cur []
+          either (fail . show) return $ eapps
+        renderHtml $ appsIndex apps
 
   restEdit _ aid = do
     user <- getHailsUser
