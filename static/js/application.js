@@ -41,7 +41,7 @@ $(function() {
 
 
   $("input[data-provide='typeahead']#app_search").typeahead({
-    source: [{_id: "gitstar-viewer", title: "Code", url: "http://viewer.lvh.me:5000", description: "A simple code viewer for Gitstar.", name: "Code Viewer", owner: "alevy"}],
+    source: [{_id: "gitstar-viewer", title: "Code", url: "http://viewer.lvh.me:8081", description: "A simple code viewer for Gitstar.", name: "Code Viewer", owner: "alevy"}],
     items: 10,
     property: "name",
     onselect: function(obj) {
