@@ -17,13 +17,17 @@ import Control.Monad
 import Data.Monoid
 
 import Models
-import Data.String.Utils
+import Data.List.Split
 import Text.Blaze.Html5 hiding (title, style)
 import Text.Blaze.Html5.Attributes hiding (label, form, span)
 
 transformAppUrl :: String -> String -> String -> String
 transformAppUrl url user proj =
   replace "$user" user $ replace "$project" proj url
+  where replace wrd to = (join to) . (splitOn wrd)
+        join joiner (x:[]) = x
+        join joiner (x:xs) = x ++ joiner ++ (join joiner xs)
+        join _ [] = []
 
 showProject :: Project -> [GitstarApp] -> Html
 showProject proj apps = do
