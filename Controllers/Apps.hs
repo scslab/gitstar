@@ -28,9 +28,18 @@ data AppsController = AppsController
 
 instance RestController t (DCLabeled L8.ByteString) DC AppsController where
   restIndex _ = do
-    atype <- requestHeader "accept"
-    case atype >>= (S.findSubstring "application/json") of
-      Just _ -> do
+    atype <- requestHeader "accept" >>= return . (maybe "" id)
+    case S.breakSubstring "application/json" atype of
+      (x,y) | S.null y -> do
+        uName <- getHailsUser
+        apps <- liftLIO $ do
+          policy <- gitstar
+          eapps <- withDB policy $ do
+            cur <- find $ select [ "owner" =: uName ] "apps"
+            cursorToApps cur []
+          either (fail . show) return $ eapps
+        renderHtml $ appsIndex apps
+            | otherwise -> do
         apps <- liftLIO $ do
           policy <- gitstar
           eapps <- withDB policy $ do
@@ -44,15 +53,6 @@ instance RestController t (DCLabeled L8.ByteString) DC AppsController where
                    , ("description", appDescription app)
                    , ("url", appUrl app)
                    , ("owner", appOwner app)] :: Map String String) apps 
-      _ -> do
-        uName <- getHailsUser
-        apps <- liftLIO $ do
-          policy <- gitstar
-          eapps <- withDB policy $ do
-            cur <- find $ select [ "owner" =: uName ] "apps"
-            cursorToApps cur []
-          either (fail . show) return $ eapps
-        renderHtml $ appsIndex apps
 
   restEdit _ aid = do
     user <- getHailsUser
