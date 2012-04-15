@@ -14,6 +14,8 @@ import Prelude hiding (div, id, span)
 import qualified Prelude
 import Control.Monad
 
+import Data.Monoid
+
 import Models
 import Data.String.Utils
 import Text.Blaze.Html5 hiding (title, style)
@@ -29,7 +31,8 @@ showProject proj apps = do
     toHtml $ projectName proj
     unless (isPublic proj) $
       i ! class_ "icon-lock" ! title "Private project" $ ""
-  p $ a ! href (toValue $ "/" ++ projectOwner proj ++ "/" ++ projectName proj ++ "/edit") $ "edit"
+  p $ a ! href (toValue $ "/" ++ projectOwner proj ++ "/"
+                              ++ projectName proj ++ "/edit") $ "edit"
   p ! class_ "well" $ toHtml $ let desc = projectDescription proj
                                in if null desc then "No description" else desc
   p $ toHtml $ "Repo: " ++ projectRepository proj
@@ -55,7 +58,8 @@ showProject proj apps = do
 
 formProject :: Maybe Project -> Html
 formProject mproj = do
-  let act = toValue $ (maybe "/projects" (\proj -> "/" ++ projectOwner proj ++ "/" ++ projectName proj) mproj)
+  let act = toValue $ (maybe "/projects" (\proj -> "/" ++ projectOwner proj
+                                              ++ "/" ++ projectName proj) mproj)
   form ! action act ! method "POST" ! id "project" $ do
     case mproj of
       Just _ -> return () 
@@ -84,11 +88,16 @@ formProject mproj = do
       a ! href "#add_collaborator" $ do
         span ! class_ "icon-plus" $ ""
     ul ! id "collaborators" $ do
+      input ! type_ "hidden" ! name "collaborators[]" ! value ""
       forM_ collaborators $ \collaborator -> do
         li $ do
           input ! type_ "hidden" ! name "collaborators[]"
-              ! value (toValue collaborator)
+                ! value (toValue collaborator)
           a ! href (toValue $ "/" ++ collaborator) $ toHtml collaborator
+          void "  "
+          a ! href "#rm_collaborator"
+            ! dataAttribute "name" (toValue collaborator) $ do
+            span ! class_ "icon-minus" $ ""
     div $ do
       label $ do "Viewers ("
                  a ! href "#" ! rel "tooltip"
@@ -96,15 +105,21 @@ formProject mproj = do
                  ")"
       input ! type_ "text" ! id "new_reader"
             ! placeholder "username"
+            ! (if projIsPub then disabled "" else mempty)
       " "
       a ! href "#add_reader" $ do
         span ! class_ "icon-plus" $ ""
     ul ! id "readers" $ do
+      input ! type_ "hidden" ! name "readers[]" ! value ""
       forM_ readers $ \reader -> do
         li $ do
           input ! type_ "hidden" ! name "readers[]"
-              ! value (toValue reader)
+                ! value (toValue reader)
           a ! href (toValue $ "/" ++ reader) $ toHtml reader
+          void "  "
+          a ! href "#rm_reader"
+            ! dataAttribute "name" (toValue reader) $ do
+            span ! class_ "icon-minus" $ ""
     div $
       button ! type_ "submit" $ "Submit"
   where projIsPub = maybe False isPublic mproj
