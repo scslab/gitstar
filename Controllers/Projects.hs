@@ -47,7 +47,8 @@ instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
       case atype of
         Just "application/bson" ->
           render "application/bson" $ encodeDoc $ toDocument proj
-        _ -> renderHtml $ showProject proj apps
+        _ -> renderHtml $
+              showProject (usr == projectOwner proj) proj apps frkdP
 
 
   restEdit _ projName = do
