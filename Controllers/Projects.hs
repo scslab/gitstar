@@ -33,9 +33,8 @@ data ProjectsController = ProjectsController
 instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
   restShow _ projName = do
     policy <- liftLIO gitstar
-    privs <- getPolicyPrivIfUserIsGitstar policy
     uName <- getParamVal "user_name"
-    mProj <- liftLIO $ findWhereP privs policy $
+    mProj <- liftLIO $ findWhere policy $
                 select [ "name" =: L8.unpack projName
                        , "owner" =: uName ] "projects"
     with404orJust mProj $ \proj -> do
@@ -46,11 +45,6 @@ instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
         Just "application/bson" ->
           render "application/bson" $ encodeDoc $ toDocument proj
         _ -> renderHtml $ showProject proj apps
-    where getPolicyPrivIfUserIsGitstar policy = do
-          usr <- getHailsUser
-          if usr == "gitstar" -- ssh server is making request
-            then appGetPolicyPriv policy
-            else return noPrivs
 
 
   restEdit _ projName = do

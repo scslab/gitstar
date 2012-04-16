@@ -43,21 +43,6 @@ fromCSList :: Param -> [String]
 fromCSList = map (strip . L8.unpack) . L8.split ',' . paramValue
   where strip = filter (not . isSpace)
 
--- | Get privileges based on current user
-appGetPolicyPriv :: PrivilegeGrantGate dbp => dbp -> Action t b DC DCPrivTCB
-appGetPolicyPriv policy = do
-  app <- principalS `liftM` getHailsApp
-  doGetPolicyPriv policy app
-    where principalS :: String -> Principal
-          principalS = principal
-
--- | Get privilege based on principal
-doGetPolicyPriv :: PrivilegeGrantGate dbp => dbp -> Principal -> Action t b DC DCPrivTCB
-doGetPolicyPriv policy prin = liftLIO $ do
-  gate <- grantPriv policy prin
-  p <- getPrivileges
-  callGate gate p
-
 maybeRead :: Read a => String -> Maybe a
 maybeRead = fmap fst . listToMaybe . reads
 
