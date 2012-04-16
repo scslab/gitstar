@@ -11,7 +11,7 @@ $(function () {
   var flash = function (type, handler) {
     var flash_type ='_flash-'+type;
     if($.cookie(flash_type)) {
-      var flash = $.cookie(flash_type).split(',');
+      var flash = $.cookie(flash_type).slice(1,-1).split('|');
       var oid = flash[0]; // get unique message id
       var msg = flash[1]; // get actual message
       if(window.sessionStorage.getItem(oid) == null ) {
