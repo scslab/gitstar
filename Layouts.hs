@@ -34,6 +34,7 @@ application user content = docTypeHtml $ do
   head $ do
     title $ "GitStar - Where loops count"
     stylesheet "/static/css/bootstrap.css"
+    stylesheet "/static/css/gh-buttons.css"
     stylesheet "/static/css/application.css"
     body $ do
      div ! class_ "navbar navbar-fixed-top" $ do

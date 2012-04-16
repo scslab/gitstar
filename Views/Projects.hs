@@ -29,23 +29,34 @@ transformAppUrl url user proj =
         join joiner (x:xs) = x ++ joiner ++ (join joiner xs)
         join _ [] = []
 
-showProject :: Project -> [GitstarApp] -> Html
-showProject proj apps = do
+showProject :: Bool -> Project -> [GitstarApp] -> Maybe Project -> Html
+showProject isCurUser proj apps forkedProj = do
   h1 $ do
     toHtml $ projectName proj
     unless (isPublic proj) $
       i ! class_ "icon-lock" ! title "Private project" $ ""
+    unless isCurUser $
+      form ! action "/projects" ! method "POST" ! id "fork_proj" $ do
+        input ! type_ "hidden" ! name "_fork"
+              ! value (toValue . show . projectObjId $ proj)
+        a ! href "#fork_proj"
+          ! class_ "btn btn-primary gh-button fork icon white fork-proj" $ "Fork"
   p $ a ! href (toValue $ "/" ++ projectOwner proj ++ "/"
                               ++ projectName proj ++ "/edit") $ "edit"
   p ! class_ "well" $ toHtml $ let desc = projectDescription proj
                                in if null desc then "No description" else desc
-  p $ toHtml $ "Repo: " ++ projectRepository proj
+  p $ toHtml $ "Repo: /" ++ projectRepository proj
+  case forkedProj of
+    Nothing -> ""
+    Just fp -> p $ do "Forked from: "
+                      let url = "/" ++ projectOwner fp ++ "/" ++ projectName fp
+                      a ! href (toValue url) $ toHtml url
   ul ! id "apps" ! class_ "nav nav-pills" $ do
     forM apps $ \app -> do
       li $ a ! class_ "external"
              ! href (toValue $ transformAppUrl (appUrl app) (projectOwner proj) (projectName proj))
              $ toHtml $ appName app
-    li $ a ! href "#add_app" $ do "Add "; span ! class_ "icon-plus" $ ""
+    when isCurUser $ li $ a ! href "#add_app" $ do "Add "; span ! class_ "icon-plus" $ ""
   iframe ! class_ "project_app" ! src "" $ ""
   div ! id "add_app" ! class_ "project_app" ! style "display: none" $ do
     h2 $ "Add an app to your project"

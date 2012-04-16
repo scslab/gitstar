@@ -66,6 +66,12 @@ $(function() {
     return false;
   });
 
+  /* Handle fork */
+  $("a[href='#fork_proj']").live("click", function() {
+    $("#fork_proj").submit()
+    return false;
+  });
+
 
   /* Handle apps */
   function swapTo(elm) {
