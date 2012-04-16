@@ -8,6 +8,7 @@
 module Controllers.Projects ( ProjectsController(..) ) where
 
 import Prelude hiding (lookup)
+import Control.Monad
 
 import Layouts
 import Models
@@ -18,7 +19,7 @@ import Views.Projects
 import LIO
 import LIO.DCLabel
 
-import Hails.Database.MongoDB (select, (=:))
+import Hails.Database.MongoDB (select, look, (=:))
 
 import qualified Data.ByteString.Lazy.Char8 as L8
 import Data.IterIO.Http
@@ -32,12 +33,14 @@ data ProjectsController = ProjectsController
 
 instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
   restShow _ projName = do
+    usr <- getHailsUser
     policy <- liftLIO gitstar
     uName <- getParamVal "user_name"
     mProj <- liftLIO $ findWhere policy $
                 select [ "name" =: L8.unpack projName
                        , "owner" =: uName ] "projects"
     with404orJust mProj $ \proj -> do
+      frkdP <- liftLIO $ findBy policy "projects" "_id" (projectForkedFrom proj)
       mas <- liftLIO $ mapM (findBy policy "apps" "_id") (projectApps proj)
       let apps = map fromJust $ filter isJust mas
       atype <- requestHeader "accept"
@@ -61,6 +64,9 @@ instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
   -- /projects/new
   restNew _ = renderHtml newProject
 
+  -- Create a new project (from scractch or fork)
+  -- TODO: mkProject may throw an exception if the document is not
+  -- "well-formed". We can handle this more gracefully.
   restCreate _ = do
     policy <- liftLIO gitstar
     uName  <- getHailsUser
@@ -69,6 +75,7 @@ instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
     proj   <- liftLIO $ unlabel lproj
     let pOwner = projectOwner proj
         pName  = projectName  proj
+        isFork = isJust $ projectForkedFrom proj
 
     exists <- projExists policy pOwner pName
 
@@ -80,7 +87,8 @@ instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
                   liftLIO $ maybe (return ())
                                   (updateUserWithProjId uName) $ cast' r
                   redirectTo $ "/" ++ pOwner ++ "/" ++ pName
-                  flashSuccess "Project created successfully!" 
+                  flashSuccess $ "Project successfully " ++
+                                 if isFork then "forked!" else "created!"
                 _      -> respondStat stat500
       where projExists policy owner projName = do
               let qry = select ["name" =: projName, "owner" =: owner] "projects"
