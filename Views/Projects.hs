@@ -41,7 +41,7 @@ showProject isCurUser proj apps forkedProj = do
               ! value (toValue . show . projectObjId $ proj)
         a ! href "#fork_proj"
           ! class_ "btn btn-primary gh-button fork icon white fork-proj" $ "Fork"
-  p $ a ! href (toValue $ "/" ++ projectOwner proj ++ "/"
+  when isCurUser $ p $ a ! href (toValue $ "/" ++ projectOwner proj ++ "/"
                               ++ projectName proj ++ "/edit") $ "edit"
   p ! class_ "well" $ toHtml $ let desc = projectDescription proj
                                in if null desc then "No description" else desc
