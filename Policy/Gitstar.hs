@@ -83,16 +83,6 @@ instance DatabasePolicy GitstarPolicy where
 
   policyOwner (GitstarPolicy p _) = principal . owner $ p
 
-instance PrivilegeGrantGate GitstarPolicy where
-  grantPriv policy@(GitstarPolicy p _) app = getLabel >>= \curL ->
-     let l = newDC (secrecy curL) (policyOwner policy)
-     in mkGateP p l analyze
-        where analyze desc =
-                if app == "gitstar" && desc `canDelegate` newPriv app
-                  then p
-                  else noPrivs
-                      
-
 instance MkToLabeledDocument GitstarPolicy where
   mkToLabeledDocument (GitstarPolicy privs _) = toDocumentP privs
     
@@ -342,7 +332,7 @@ projectsCollection p = collectionP p "projects" lpub colClearance $
                 r = case projectReaders proj of
                       Left Public -> (<>)
                       Right rs -> listToComponent [listToDisj $
-                                    projectOwner proj:(rs ++ collabs)]
+                                    projectOwner proj:"gitstar":(rs ++ collabs)]
             in newDC (owner p .\/. r)
                      (projectOwner proj .\/.  owner p)
 
