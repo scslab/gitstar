@@ -47,4 +47,4 @@ p {
 .gh-button.fork.white.icon:focus:before,
 .gh-button.fork.white.icon:active:before { background-position: -12px -144px; }
 
-.fork-proj { float: right; }
+.fork-proj { float: right; top: -15px; position: relative;}

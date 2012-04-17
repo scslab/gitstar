@@ -104,7 +104,7 @@ formProject mproj = do
         span ! class_ "icon-plus" $ ""
     ul ! id "collaborators" $ do
       input ! type_ "hidden" ! name "collaborators[]" ! value ""
-      forM_ collaborators $ \collaborator -> do
+      forM_ (filter (not . null) collaborators) $ \collaborator -> do
         li $ do
           input ! type_ "hidden" ! name "collaborators[]"
                 ! value (toValue collaborator)
@@ -126,7 +126,7 @@ formProject mproj = do
         span ! class_ "icon-plus" $ ""
     ul ! id "readers" $ do
       input ! type_ "hidden" ! name "readers[]" ! value ""
-      forM_ readers $ \reader -> do
+      forM_ (filter (not . null) readers) $ \reader -> do
         li $ do
           input ! type_ "hidden" ! name "readers[]"
                 ! value (toValue reader)
