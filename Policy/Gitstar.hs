@@ -81,8 +81,6 @@ instance DatabasePolicy GitstarPolicy where
 
   policyDB (GitstarPolicy _ db) = db
 
-  policyOwner (GitstarPolicy p _) = principal . owner $ p
-
 instance MkToLabeledDocument GitstarPolicy where
   mkToLabeledDocument (GitstarPolicy privs _) = toDocumentP privs
     
