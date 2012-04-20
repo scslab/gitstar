@@ -7,10 +7,10 @@
 
 module Views.Welcome ( welcomeView, goodbyeView ) where
 
-import Prelude hiding (div, span)
+import Prelude hiding (id, div, span)
 
 import Text.Blaze.Html5 hiding (title)
-import Text.Blaze.Html5.Attributes hiding (id, label, form, span)
+import Text.Blaze.Html5.Attributes hiding (label, form, span)
 
 welcomeView :: Html
 welcomeView = do
@@ -38,6 +38,6 @@ welcomeView = do
 
 goodbyeView :: String -> Html
 goodbyeView user = do
-  div ! class_ "hero-unit" $ do
+  div ! class_ "hero-unit" ! id "logout" $ do
     h1 $ toHtml $ "Goodbye "++ user
     p $ "Hope to see you again soon..."
