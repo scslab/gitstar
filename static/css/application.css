@@ -41,3 +41,10 @@ p {
   width: 22px;
 }
 
+
+.gh-button.fork.white.icon:before { background-position: -12px -144px; }
+.gh-button.fork.white.icon:hover:before,
+.gh-button.fork.white.icon:focus:before,
+.gh-button.fork.white.icon:active:before { background-position: -12px -144px; }
+
+.fork-proj { float: right; top: -15px; position: relative;}

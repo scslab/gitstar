@@ -296,8 +296,73 @@ delUserKey username ldoc = do
                  Just kId -> filter ((/=kId) . sshKeyId) $ userKeys user
                  _ -> userKeys user
     return $ user { userKeys = keys }
-      where maybeRead :: Read a => String -> Maybe a
-            maybeRead = fmap fst . listToMaybe . reads
+
+--
+-- App model
+--
+
+-- | A gitstar app.
+data GitstarApp = GitstarApp {
+    appId          :: String
+  -- ^ Unique name for the app (not displayed to user)
+  , appName        :: String
+  -- ^ Descriptive name of app (used to search for apps)
+  , appTitle       :: String
+  -- ^ App title, to be displayed on project tabs
+  , appUrl         :: Url
+  -- ^ App url, containing @$user@ and @$project@ to be replaced by
+  -- current user an app
+  , appOwner       :: UserName
+  -- ^ App owner
+  , appDescription :: String
+  -- ^ App description
+} deriving (Show)
+
+
+-- | Collection keeping track of registered Gitstar Apps
+-- /Security properties:/
+--
+--   * All fields are searchable and everything is publicly readable
+--
+--   * Only gitstar and owner may modify document
+--
+appsCollection :: TCBPriv -> DC (Collection DCLabel)
+appsCollection p = collectionP p "apps" lpub colClearance $
+  RawPolicy (labelForApp . fromJust . fromDocument)
+            [ ("_id",   SearchableField)
+            , ("name",  SearchableField)
+            , ("title", SearchableField)
+            , ("description", SearchableField)
+            , ("owner", SearchableField)
+            ]
+    where colClearance = newDC (<>) (owner p)
+          labelForApp proj = newDC (<>) (owner p .\/. appOwner proj)
+
+instance DCRecord GitstarApp where
+  collectionName = const "apps"
+  fromDocument doc = do
+    aId <- lookup (u "_id") doc
+    aName <- lookup (u "name") doc
+    aTitle <- lookup (u "title") doc
+    aUrl  <- lookup (u "url") doc
+    aOwner  <- lookup (u "owner") doc
+    aDescription <- lookup (u "description") doc
+    return $ GitstarApp
+      { appId = aId
+      , appName = aName
+      , appTitle = aTitle
+      , appUrl    = aUrl
+      , appOwner = aOwner
+      , appDescription = aDescription
+      }
+
+  toDocument app =
+    [ "_id" =: (appId app)
+    , "name" =: (appName app)
+    , "title" =: (appTitle app)
+    , "owner" =: (appOwner app)
+    , "description" =: (appDescription app)
+    , "url" =: (appUrl app)]
 
 
 --
@@ -360,65 +425,10 @@ data Project = Project {
     -- ^ Project is either public or private to the readers and
     -- collaborators
   , projectApps          :: [String]
+    -- ^ App has a set of associated apps
+  , projectForkedFrom    :: Maybe ObjectId
+    -- ^ Id of project this project was forked off from, if any.
   } deriving (Show)
-
-data GitstarApp = GitstarApp {
-    appId          :: String
-  -- ^ Unique name for the app (not displayed to user)
-  , appName        :: String
-  -- ^ Descriptive name of app (used to search for apps)
-  , appTitle       :: String
-  -- ^ App title, to be displayed on project tabs
-  , appUrl         :: Url
-  , appOwner       :: UserName
-  , appDescription :: String
-} deriving (Show)
-
-
--- | Collection keeping track of registered Gitstar Apps
--- /Security properties:/
---
---   * All fields are searchable and everything is publicly readable
---
---   * Only gitstar and owner may modify document
---
-appsCollection :: TCBPriv -> DC (Collection DCLabel)
-appsCollection p = collectionP p "apps" lpub colClearance $
-  RawPolicy (labelForApp . fromJust . fromDocument)
-            [ ("_id",   SearchableField)
-            , ("name",  SearchableField)
-            , ("title", SearchableField)
-            , ("description", SearchableField)
-            , ("owner", SearchableField)
-            ]
-    where colClearance = newDC (<>) (owner p)
-          labelForApp proj = newDC (<>) (owner p .\/. appOwner proj)
-
-instance DCRecord GitstarApp where
-  collectionName = const "apps"
-  fromDocument doc = do
-    aId <- lookup (u "_id") doc
-    aName <- lookup (u "name") doc
-    aTitle <- lookup (u "title") doc
-    aUrl  <- lookup (u "url") doc
-    aOwner  <- lookup (u "owner") doc
-    aDescription <- lookup (u "description") doc
-    return $ GitstarApp
-      { appId = aId
-      , appName = aName
-      , appTitle = aTitle
-      , appUrl    = aUrl
-      , appOwner = aOwner
-      , appDescription = aDescription
-      }
-
-  toDocument app =
-    [ "_id" =: (appId app)
-    , "name" =: (appName app)
-    , "title" =: (appTitle app)
-    , "owner" =: (appOwner app)
-    , "description" =: (appDescription app)
-    , "url" =: (appUrl app)]
 
 instance DCRecord Project where
   fromDocument doc = do
@@ -442,7 +452,8 @@ instance DCRecord Project where
       , projectReaders       = if pPub then
                                 Left Public
                                 else Right pRedrs
-      , projectApps = pApps
+      , projectApps          = pApps
+      , projectForkedFrom    = lookup (u "forked_from") doc
       }
 
   toDocument proj =
@@ -454,22 +465,49 @@ instance DCRecord Project where
     , (u "collaborators") =: projectCollaborators proj
     , (u "readers")       =: either (const []) id (projectReaders proj)
     , (u "public")        =: either (const True) (const False) (projectReaders proj)
-    , (u "apps")          =: projectApps proj]
+    , (u "apps")          =: projectApps proj
+    , (u "forked_from")   =: projectForkedFrom proj]
 
   collectionName _ = "projects"
 
 instance DCLabeledRecord Project where
 
--- | Given a username and a labeled document corresponding to a key,
--- find the user in the DB and return a 'User' value with the key
--- added. The resultant value is endorsed by the policy/service.
+-- | Given a username and a labeled document containing
+-- either:
+--
+-- * the project fields, create a labeled 'Project' from the
+--   corresponding document.
+--
+-- * or @_fork@ field (containing the object id of an existing
+--   project), create a labeled 'Project' by copying all but the
+--   access-control fields of the project.
 mkProject :: UserName -> DCLabeled (Document DCLabel)
-              -> DC (DCLabeled Project)
+                      -> DC (DCLabeled Project)
 mkProject username ldoc = do
   void $ getOrCreateUser username
-  gitstarToLabeled ldoc $ \doc ->
-    -- create project object:
-    fromDocument $ merge [ "owner"  =: username ] doc
+  taintForkedProj $ gitstarToLabeled ldoc $ \doc ->
+    case lookup "_fork" doc of
+      Nothing -> do
+        fromDocument $ merge [ "owner"  =: username ] doc -- new proj
+      Just pidS -> do
+        policy@(GitstarPolicy privs _) <- gitstar
+        let pid = Just $ read pidS
+        proj <- findByP privs policy "projects" "_id" pid >>= maybe err return
+        return $ proj { projectId            = Nothing
+                      , projectOwner         = username
+                      , projectCollaborators = []
+                      , projectReaders       = Right []
+                      , projectForkedFrom    = pid }
+  where err = throwIO $ userError "mkProject failed to fork project"
+        -- taint app to relfect reading of forked project:
+        taintForkedProj io = do
+          lproj <- io
+          proj <- unlabel lproj
+          policy <- gitstar
+          let pid = projectForkedFrom proj
+          void $ (findBy policy "projects" "_id" $ pid :: DC (Maybe Project))
+          return lproj
+
 
 -- | Given a user name and project ID, associate the project with the
 -- user, if it's not already.
@@ -535,7 +573,9 @@ instance CreteProject Project where
   createProject proj = do
     res <- gitstarInsertRecord proj
     when (isRight res) $
-      gitstarCreateRepo (projectOwner proj) (projectName proj)
+      maybe gitstarCreateRepo gitstarForkRepo (projectForkedFrom proj)
+                                              (projectOwner proj)
+                                              (projectName proj)
     return res
 
 instance CreteProject (DCLabeled Project) where
@@ -543,7 +583,9 @@ instance CreteProject (DCLabeled Project) where
     res <- gitstarInsertLabeledRecord lproj
     when (isRight res) $ do
       proj <- unlabel lproj
-      gitstarCreateRepo (projectOwner proj) (projectName proj)
+      maybe gitstarCreateRepo gitstarForkRepo (projectForkedFrom proj)
+                                              (projectOwner proj)
+                                              (projectName proj)
     return res
 
 
@@ -605,7 +647,7 @@ gitstarRepoHttp usr proj urlSuffix = do
        let url = gitstar_ssh_web_url ++ "repos/" ++ usr ++ "/"
                                      ++ proj ++ urlSuffix
            req = getRequest url
-       sshResp <- mkGitstarHttpReqTCB req
+       sshResp <- mkGitstarHttpReqTCB req L8.empty
        if respStatusDC sshResp /= stat200
          then return Nothing
          else do body <- liftLIO $ extractBody sshResp
@@ -618,16 +660,43 @@ gitstarCreateRepo :: UserName
 gitstarCreateRepo usr proj = do
   let url = gitstar_ssh_web_url ++ "repos/" ++ usr ++ "/" ++ proj
       req = postRequest url "application/none" L8.empty
-  resp <- mkGitstarHttpReqTCB req
+  resp <- mkGitstarHttpReqTCB req L8.empty
   unless (respStatusDC resp == stat200) $
     throwIO . userError $ "SSH Web server failure"
 
+-- | Fork project @pid@ to @newUser/newProj@
+gitstarForkRepo :: ObjectId
+                -> UserName
+                -> ProjectName
+                -> DC ()
+gitstarForkRepo pid newUsr newProj = do
+  policy@(GitstarPolicy privs _) <- gitstar
+  moproj <- findByP privs policy "projects" "_id" (Just pid)
+  case moproj of
+    Nothing -> throwIO . userError $ "Project missing"
+    Just oproj -> do
+      let usr  = projectOwner oproj
+          proj = projectName oproj
+          body = L8.pack $ "fork_to=/" ++ newUsr ++ "/" ++ newProj
+          url  = gitstar_ssh_web_url ++ "repos/" ++ usr ++ "/" ++ proj
+          req  = postRequest url "application/x-www-form-urlencoded" body
+      resp <- mkGitstarHttpReqTCB req body
+      unless (respStatusDC resp == stat200) $
+        throwIO . userError $ "SSH Web server failure"
+
 -- | Make empty-body request to the gitstar API server
-mkGitstarHttpReqTCB :: HttpReq () -> DC HttpRespDC
-mkGitstarHttpReqTCB req0 = do
+mkGitstarHttpReqTCB :: HttpReq () -> L8.ByteString -> DC HttpRespDC
+mkGitstarHttpReqTCB req0 body = do
   (GitstarPolicy privs _) <- gitstar
   let authHdr = ( S8.pack "authorization"
                 , gitstar_ssh_web_authorization)
       acceptHdr = (S8.pack "accept", S8.pack "application/bson")
       req  = req0 {reqHeaders = authHdr: acceptHdr: reqHeaders req0}
-  simpleHttpP privs req L8.empty
+  simpleHttpP privs req body
+
+--
+-- Misc
+--
+
+maybeRead :: Read a => String -> Maybe a
+maybeRead = fmap fst . listToMaybe . reads

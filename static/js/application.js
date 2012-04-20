@@ -1,4 +1,11 @@
 $(function() {
+
+/* Redirect home if logged out */
+  if($("#logout").length != 0) {
+    $("#logout").fadeOut(500, function() {
+      window.location = "/";
+    });
+  }
   /* Add/remove collaborators*/
   $("a[href='#add_collaborator']").click(function() {
     field = $("input#new_collaborator")
@@ -66,6 +73,12 @@ $(function() {
     return false;
   });
 
+  /* Handle fork */
+  $("a[href='#fork_proj']").live("click", function() {
+    $("#fork_proj").submit()
+    return false;
+  });
+
 
   /* Handle apps */
   function swapTo(elm) {
@@ -117,4 +130,3 @@ $(function() {
 window.addEventListener("message", function(event) {
   $("iframe.project_app").css("height", event.data + "px");
 }, false);
-
