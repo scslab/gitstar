@@ -45,7 +45,7 @@ showProject isCurUser proj apps forkedProj = do
                               ++ projectName proj ++ "/edit") $ "edit"
   p ! class_ "well" $ toHtml $ let desc = projectDescription proj
                                in if null desc then "No description" else desc
-  p $ toHtml $ "Repo: /" ++ projectRepository proj
+  p $ toHtml $ "Repo: ssh://gitstar.com/" ++ projectRepository proj
   case forkedProj of
     Nothing -> ""
     Just fp -> p $ do "Forked from: "

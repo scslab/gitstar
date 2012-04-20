@@ -66,6 +66,9 @@ application user content = docTypeHtml $ do
                 li $ a ! href "/keys/" $ do
                   span ! class_ "icon-lock" $ ""
                   " Manage keys"
+                li $ a ! href "/logout" $ do
+                  span ! class_ "icon-road" $ ""
+                  " Logout"
      div ! class_ "row" $
        div ! id "flash-messages" ! class_ "span4 offset4" $ ""
      div ! class_ "container" $ content
