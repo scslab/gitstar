@@ -81,3 +81,10 @@ flashError = flash "error"
 
 flashSuccess :: String -> Action t b DC ()
 flashSuccess = flash "success"
+
+delCookie :: String -> Maybe String -> Action t b DC ()
+delCookie n mdomain = modify $ \s ->
+  let cHeader = ( S8.pack "Set-Cookie", S8.pack $ n ++ "=;"
+        ++ maybe "" (\d -> "domain=" ++ d ++ ";") mdomain
+        ++ "path=/; expires=Thu, Jan 01 1970 00:00:00 UTC;")
+  in s { actionResp = respAddHeader cHeader (actionResp s)}

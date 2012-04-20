@@ -20,6 +20,7 @@ server = runAction $ do
   void . setParams $ prms1 ++ prms0
   runActionRoute $ mconcat 
     [ routeTop $ routeAction welcome
+    , routeMethod "GET" $ routePattern "/logout" $ routeAction goodbye
     , routeRestController "apps" AppsController
     , routeMethod "POST" $ routePattern "/keys/delete" $
         routeAction $ restDestroy KeysController undefined
