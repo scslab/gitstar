@@ -33,16 +33,8 @@ welcomeView = do
              , "your projects immediately... No longer will you have to wait"
              , "month, weeks, or days for features!"
              ]  :: String)
-    p $ do a ! href "/scs/hails/page/Tutorial.md"
-             ! class_ "btn btn-large btn-success" $
-             "Get started!"
-           "   "
-           a ! href "/projects/new" ! class_ "btn btn-large btn-primary" $
-             "Start coding!"
-           "   "
-           a ! href "/scs/hails/page/Architecture.md"
-             ! class_ "btn btn-large" $
-             "About Hails?"
+    p $ a ! href "/projects/new" ! class_ "btn btn-large btn-primary" $
+          "Start coding!"
 
 goodbyeView :: String -> Html
 goodbyeView user = do
