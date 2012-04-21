@@ -29,10 +29,32 @@ renderHtml htmlBody = do
 stylesheet :: String -> Html
 stylesheet uri = link ! rel "stylesheet" ! type_ "text/css" ! href (toValue uri)
 
+homeHtml :: Html -> Action t b DC ()
+homeHtml htmlBody = render "text/html" $ R.renderHtml $ homeLayout htmlBody
+
+homeLayout :: Html -> Html
+homeLayout content = docTypeHtml $ do
+  head $ do
+    title $ "GitStar - For hackers and other heretics"
+    stylesheet "/static/css/bootstrap.css"
+    stylesheet "/static/css/gh-buttons.css"
+    stylesheet "/static/css/home.css"
+    body $ do
+     div ! class_ "row" $
+       div ! id "flash-messages" ! class_ "span4 offset4" $ ""
+     div ! class_ "container" $ content
+     script ! src "/static/js/jquery.js" $ ""
+     script ! src "/static/js/jquery.cookie.js" $ ""
+     script ! src "/static/js/bootstrap.min.js" $ ""
+     script ! src "/static/js/bootstrap-typeahead.js" $ ""
+     script ! src "/static/js/application.js" $ ""
+     script ! src "/static/js/flash.js" $ ""
+
+
 application :: User -> Html -> Html
 application user content = docTypeHtml $ do
   head $ do
-    title $ "GitStar - Where loops count"
+    title $ "GitStar - For hackers and other heretics"
     stylesheet "/static/css/bootstrap.css"
     stylesheet "/static/css/gh-buttons.css"
     stylesheet "/static/css/application.css"

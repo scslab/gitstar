@@ -20,11 +20,11 @@ import Hails.Crypto
 
 showUser :: User -> [Project] -> Html
 showUser user projs = do
-  h1 $ do
-    let gravatar = show.md5 $ L8.pack $ fromMaybe "" $ userGravatar user
-    img ! src (toValue $ "https://secure.gravatar.com/avatar/" ++ gravatar ++ "?s=48")
-    toHtml $ " " ++ userName user
-  hr
+  div ! class_ "page-header" $
+    h1 $ do
+      let gravatar = show.md5 $ L8.pack $ fromMaybe "" $ userGravatar user
+      img ! src (toValue $ "https://secure.gravatar.com/avatar/" ++ gravatar ++ "?s=48")
+      toHtml $ " " ++ userName user
   p ! class_ "well" $ do
     case userFullName user of
       Just fn -> do
@@ -50,7 +50,8 @@ showUser user projs = do
 
 editUser :: User -> Html
 editUser user = do
-  h1 $ toHtml $ "My profile (" ++ userName user ++ ")"
+  div ! class_ "page-header" $
+    h1 $ toHtml $ "My profile (" ++ userName user ++ ")"
   formUser $ Just user
 
 formUser :: Maybe User -> Html
