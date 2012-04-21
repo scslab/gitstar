@@ -20,7 +20,7 @@ welcomeView username = do
     p $ do toHtml $ (concat 
             [ "GitStar is a social source code management platform "
             , "built using the new Hails web framework. "
-            , "Gitstar provides is your traditional web-based code hosting "
+            , "Gitstar provides your traditional web-based code hosting "
             , "site with a twist: "
             , "Insead of a single codebase, GitStar is composed of many "
             , "applications, written by different people, "
