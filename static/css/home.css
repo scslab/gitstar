@@ -1,0 +1,11 @@
+@import url(http://fonts.googleapis.com/css?family=Ubuntu:400,700,400italic,700italic|Inika:400,700);
+
+body {
+  padding-top: 60px;
+  font-family: "Ubuntu", sans-serif;
+  background-image: url('/static/img/bg.gif');
+}
+
+h1, h2, h3, h4 {
+  font-family: "Inika", serif;
+}

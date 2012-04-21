@@ -1,1 +1,1 @@
-web: hails
+web: hails --development

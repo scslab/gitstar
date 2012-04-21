@@ -22,7 +22,9 @@ import Data.IterIO.Http.Support
 import System.FilePath (takeExtensions)
 
 welcome :: Action t b DC ()
-welcome = renderHtml welcomeView
+welcome = do
+  usr <- getHailsUser
+  homeHtml $ welcomeView usr
 
 goodbye :: Action t b DC ()
 goodbye = do
@@ -31,4 +33,4 @@ goodbye = do
   let domain = Just $ takeExtensions $ S8.unpack $ reqHost req
   delCookie "_hails_user" domain
   delCookie "_hails_user_hmac" domain
-  renderHtml $ goodbyeView usr
+  homeHtml $ goodbyeView usr

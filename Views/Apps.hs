@@ -51,7 +51,8 @@ appForm mapp user =
 
 appsIndex :: [GitstarApp] -> Html
 appsIndex apps = do
-  h1 "My Gitstar Apps"
+  div ! class_ "page-header" $
+    h1 "My Gitstar Apps"
   p $ a ! class_ "btn btn-primary" ! href "/apps/new" $ do
     span ! class_ "icon-plus icon-white" $ ""
     " New App"
@@ -68,11 +69,13 @@ appsIndex apps = do
 
 newApp :: UserName -> Html
 newApp user = do
-  h2 "New App"
+  div ! class_ "page-header" $
+    h2 "New App"
   appForm Nothing user
 
 editApp :: GitstarApp -> UserName -> Html
 editApp app user = do
-  h2 "Edit App"
+  div ! class_ "page-header" $
+    h2 "Edit App"
   appForm (Just app) user
 

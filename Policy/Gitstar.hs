@@ -62,7 +62,7 @@ import LIO.MonadCatch
 gitstar :: DC GitstarPolicy
 gitstar = mkPolicy
 
--- | Internal gitstar policy. Only the type constructor should be
+-- | Internal gitstar policy. The type constructor should not be
 -- exported as to avoid leaking the privilege.
 data GitstarPolicy = GitstarPolicy TCBPriv (Database DCLabel)
   deriving (Typeable)

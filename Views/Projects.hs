@@ -29,23 +29,29 @@ transformAppUrl url user proj =
         join joiner (x:xs) = x ++ joiner ++ (join joiner xs)
         join _ [] = []
 
-showProject :: Bool -> Project -> [GitstarApp] -> Maybe Project -> Html
-showProject isCurUser proj apps forkedProj = do
-  h1 $ do
-    toHtml $ projectName proj
-    unless (isPublic proj) $
-      i ! class_ "icon-lock" ! title "Private project" $ ""
-    unless isCurUser $
-      form ! action "/projects" ! method "POST" ! id "fork_proj" $ do
-        input ! type_ "hidden" ! name "_fork"
-              ! value (toValue . show . projectObjId $ proj)
-        a ! href "#fork_proj"
-          ! class_ "btn btn-primary gh-button fork icon white fork-proj" $ "Fork"
-  when isCurUser $ p $ a ! href (toValue $ "/" ++ projectOwner proj ++ "/"
+showProject :: UserName -> Project -> [GitstarApp] -> Maybe Project -> Html
+showProject user proj apps forkedProj = do
+  let isCurUser = user == projectOwner proj
+  div ! class_ "page-header" $
+    h1 $ do
+      toHtml $ projectName proj
+      unless (isPublic proj) $
+        i ! class_ "icon-lock" ! title "Private project" $ ""
+      unless isCurUser $
+        form ! action "/projects" ! method "POST" ! id "fork_proj" $ do
+          input ! type_ "hidden" ! name "_fork"
+                ! value (toValue . show . projectObjId $ proj)
+          a ! href "#fork_proj"
+            ! class_ "btn btn-primary gh-button fork icon white fork-proj" $ "Fork"
+      when isCurUser $ small $ a ! href (toValue $ "/" ++ projectOwner proj ++ "/"
                               ++ projectName proj ++ "/edit") $ "edit"
   p ! class_ "well" $ toHtml $ let desc = projectDescription proj
                                in if null desc then "No description" else desc
-  p $ toHtml $ "Repo: ssh://gitstar.com/" ++ projectRepository proj
+  p $ do
+    "Repo: "
+    code $ do
+      "git clone "
+      strong $ toHtml $ user ++ "@gitstar.com:" ++ projectRepository proj
   case forkedProj of
     Nothing -> ""
     Just fp -> p $ do "Forked from: "
@@ -145,14 +151,16 @@ formProject mproj = do
 
 editProject :: Project -> Html
 editProject proj = do
-  h1 $ do
-    toHtml $ projectName proj
-    unless (isPublic proj) $
-      i ! class_ "icon-lock" ! title "Private project" $ ""
+  div ! class_ "page-header" $
+    h1 $ do
+      toHtml $ projectName proj
+      unless (isPublic proj) $
+        i ! class_ "icon-lock" ! title "Private project" $ ""
   p $ a ! href (toValue $ "/" ++ projectOwner proj ++ "/" ++ projectName proj) $ "view"
   formProject $ Just proj
 
 newProject :: Html
 newProject = do
-  h1 "New Project"
+  div ! class_ "page-header" $
+    h1 "New Project"
   formProject Nothing
