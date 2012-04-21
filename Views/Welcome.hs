@@ -27,7 +27,7 @@ welcomeView username = do
             , "safely operating on your data. "
             ] :: String)
            "Take a look at the "
-           a ! href "Hails" $ "/scs/hails"
+           a ! href "/scs/hails" $ "/scs/hails"
            " project: the code viewer and wiki are \"third-party\" apps!"
     p $ br
     div ! class_ "row-fluid" $ do
