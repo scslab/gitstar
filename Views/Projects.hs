@@ -51,7 +51,7 @@ showProject user proj apps forkedProj = do
     "Repo: "
     code $ do
       "git clone "
-      strong $ toHtml $ user ++ "@gitstar.com:" ++ projectRepository proj
+      strong $ toHtml $ "ssh://" ++ user ++ "@gitstar.com/" ++ projectRepository proj
   case forkedProj of
     Nothing -> ""
     Just fp -> p $ do "Forked from: "
