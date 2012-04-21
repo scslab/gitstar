@@ -58,6 +58,7 @@ keysIndex updateFlag keys = do
 
 newUserKey :: Html
 newUserKey = do
-  h1 "Register new key"
+  div ! class_ "page-header" $
+    h1 "Register new key"
   formUserKey
 

@@ -2,11 +2,14 @@
 
 body {
   padding-top: 60px;
+  font-family: "Ubuntu", sans-serif;
+}
+
+h1, h2, h3, h4 {
   font-family: "Inika", serif;
 }
 
 p {
-  font-family: "Ubuntu", sans-serif;
   font-size: 110%;
 }
 
@@ -15,7 +18,6 @@ p {
 }
 
 .nav-pills > li a {
-  font-family: "Ubuntu", sans-serif;
   border: 1px solid #ccc;
   border-right: 1px solid #ccc;
 }
