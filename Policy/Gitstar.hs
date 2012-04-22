@@ -430,6 +430,9 @@ data Project = Project {
     -- ^ Id of project this project was forked off from, if any.
   } deriving (Show)
 
+isPublic :: Project -> Bool
+isPublic = (either (const True) (const False)) . projectReaders
+
 instance DCRecord Project where
   fromDocument doc = do
     pName  <- lookup (u "name") doc
@@ -438,8 +441,9 @@ instance DCRecord Project where
         pColls = fromMaybe [] $ lookup (u "collaborators") doc
         pRedrs = fromMaybe [] $ lookup (u "readers") doc
         pPub = case look (u "public") doc of
-                Just v | v == (val False) -> False
-                       | otherwise -> True
+                Just v | v == (val True) -> True
+                       | v == (val ("1" :: String)) -> True
+                       | otherwise -> False
                 Nothing -> False
         pApps = fromMaybe [] $ lookup (u "apps") doc
 
@@ -447,7 +451,7 @@ instance DCRecord Project where
       { projectId            = lookup (u "_id") doc
       , projectName          = pName 
       , projectOwner         = pOwner
-      , projectDescription   = pDesc 
+      , projectDescription   = pDesc
       , projectCollaborators = pColls
       , projectReaders       = if pPub then
                                 Left Public
@@ -544,8 +548,13 @@ partialProjectUpdate username projname ldoc = do
          let protected_fields = ["_id", "name", "owner"]
              doc0 = exclude protected_fields doc
              doc1 = case look (u "public") doc0 of
-                      Just _ -> doc0
-                      Nothing -> ("public" =: False):doc0
+                      Just v | (v == (val True)) ||
+                               (v == (val ("1" :: String))) ||
+                               (v == (val ("on" :: String))) -> doc0
+                             | (v == (val False)) ||
+                               (v == (val ("0" :: String))) ||
+                               (v == (val ("off" :: String))) -> doc0
+                      Nothing -> ("public" =: (isPublic proj)):doc0
              -- readers/collaborators might correspond to empty list
              -- which is an input field of form: readers[]=""
              doc2 = filterEmptyList "readers" $
