@@ -63,6 +63,9 @@ application user content = docTypeHtml $ do
        div ! class_ "navbar-inner" $ do
          div ! class_ "container" $ do
            a ! href "/" ! class_ "brand" $ "Gitstar"
+           ul ! class_ "nav" $ do
+             li $ a ! href "/users" $ "List Users"
+             li $ a ! href "/projects" $ "List Projects"
            ul ! class_ "nav pull-right" $ do
             let gravatar = show.md5 $ L8.pack $ fromMaybe "" $ userGravatar user
             li $ a ! href (toValue $ "/" ++ userName user) $

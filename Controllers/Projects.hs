@@ -28,10 +28,17 @@ import Data.Maybe
 
 import Hails.App
 import Hails.Data.LBson (cast', encodeDoc)
+import Hails.Database.MongoDB hiding (Action, reverse, filter, map)
 
 data ProjectsController = ProjectsController
 
 instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
+  restIndex _ = do
+    projects <- liftLIO $ do
+      policy <- gitstar
+      findAll policy $ select [] "projects"
+    renderHtml $ listProjects projects
+
   restShow _ projName = do
     usr <- getHailsUser
     policy <- liftLIO gitstar

@@ -18,6 +18,19 @@ import Data.Maybe
 import qualified Data.ByteString.Lazy.Char8 as L8
 import Hails.Crypto
 
+listUsers :: [User] -> Html
+listUsers users = do
+  div ! class_ "page-header" $
+    h1 $ "GitStar Users"
+  ul $ do
+    forM_ users $ \user -> do
+      li $ p $ a ! href (toValue $ "/" ++ userName user) $ do
+        let gravatar = show.md5 $ L8.pack $ fromMaybe "" $ userGravatar user
+        img ! src (toValue $ "https://secure.gravatar.com/avatar/" ++ gravatar ++ "?s=25")
+        " "
+        toHtml $ userName user
+        maybe (return ()) (\x -> toHtml $ "(" ++ x ++ ")") $ userFullName user
+
 showUser :: User -> [Project] -> Html
 showUser user projs = do
   div ! class_ "page-header" $
