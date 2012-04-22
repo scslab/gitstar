@@ -95,9 +95,10 @@ formProject mproj = do
       label ! class_ "checkbox" $ do
         if projIsPub then
           input ! type_ "checkbox" ! name "public"
-                ! checked "checked"
-          else input ! type_ "checkbox" ! name "public"
+                ! checked "checked" ! value "1"
+          else input ! type_ "checkbox" ! name "public" ! value "1"
         "Public?"
+        input ! type_ "hidden" ! name "public" ! value "0"
     div $ do
       label $ do "Collaborators (" 
                  a ! href "#" ! rel "tooltip"
