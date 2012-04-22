@@ -8,6 +8,7 @@
 module Views.Projects ( showProject
                       , editProject
                       , newProject
+                      , listProjects
                       ) where
 
 import Prelude hiding (div, id, span)
@@ -29,6 +30,16 @@ transformAppUrl url user proj =
         join joiner (x:xs) = x ++ joiner ++ (join joiner xs)
         join _ [] = []
 
+listProjects :: [Project] -> Html
+listProjects projects = do
+  div ! class_ "page-header" $
+    h1 $ "GitStar Projects"
+  ul $ do
+    forM_ projects $ \project -> do
+      li $ p $ a ! href
+        (toValue $ "/" ++ projectOwner project ++ "/" ++ projectName project) $ do
+          toHtml $ projectOwner project ++ "/" ++ projectName project
+
 showProject :: UserName -> Project -> [GitstarApp] -> Maybe Project -> Html
 showProject user proj apps forkedProj = do
   let isCurUser = user == projectOwner proj
@@ -44,7 +55,7 @@ showProject user proj apps forkedProj = do
           a ! href "#fork_proj"
             ! class_ "btn btn-primary gh-button fork icon white fork-proj" $ "Fork"
       when isCurUser $ small $ a ! href (toValue $ "/" ++ projectOwner proj ++ "/"
-                              ++ projectName proj ++ "/edit") $ "edit"
+                              ++ projectName proj ++ "/edit") $ " edit"
   p ! class_ "well" $ toHtml $ let desc = projectDescription proj
                                in if null desc then "No description" else desc
   p $ do
@@ -63,19 +74,21 @@ showProject user proj apps forkedProj = do
              ! href (toValue $ transformAppUrl (appUrl app) (projectOwner proj) (projectName proj))
              $ toHtml $ appName app
     when isCurUser $ li $ a ! href "#add_app" $ do "Add "; span ! class_ "icon-plus" $ ""
-  iframe ! class_ "project_app" ! src "" $ ""
-  div ! id "add_app" ! class_ "project_app" ! style "display: none" $ do
-    h2 $ "Add an app to your project"
-    div $ do
-      input ! type_ "search" ! id "app_search" ! placeholder "Search for an app"
-            ! dataAttribute "provide" "typeahead"
-    form ! action (toValue $ "/" ++ projectOwner proj ++ "/" ++ projectName proj)
-         ! method "POST" ! id "project" ! style "display: none" $ do
-      div ! id "app_description" $ ""
-      forM apps $ \app -> do
-        input ! type_ "hidden" ! name "apps[]" ! value (toValue $ appId app)
-      input ! type_ "hidden" ! name "apps[]" ! id "new_app"
-      input ! type_ "submit" ! class_ "btn btn-primary" ! value "Add"
+  iframe ! class_ "project_app" ! style "display: none;" ! src "" $ ""
+  when isCurUser $ do
+    div ! id "add_app" ! class_ "project_app" $ do
+      h2 $ "Add an app to your project"
+      div $ do
+        input ! type_ "search" ! id "app_search"
+              ! placeholder "Search for an app (e.g., Code Viewer, Wiki etc')"
+              ! dataAttribute "provide" "typeahead"
+      form ! action (toValue $ "/" ++ projectOwner proj ++ "/" ++ projectName proj)
+           ! method "POST" ! id "project" ! style "display: none" $ do
+        div ! id "app_description" $ ""
+        forM apps $ \app -> do
+          input ! type_ "hidden" ! name "apps[]" ! value (toValue $ appId app)
+        input ! type_ "hidden" ! name "apps[]" ! id "new_app"
+        input ! type_ "submit" ! class_ "btn btn-primary" ! value "Add"
 
 formProject :: Maybe Project -> Html
 formProject mproj = do
