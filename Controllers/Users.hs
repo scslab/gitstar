@@ -23,6 +23,7 @@ import Data.IterIO.Http.Support
 import qualified Data.ByteString.Lazy.Char8 as L8
 
 import Hails.App
+import Hails.Database.MongoDB hiding (Action, reverse, filter, map)
 
 import Control.Monad (void)
 
@@ -30,6 +31,12 @@ import Control.Monad (void)
 data UsersController = UsersController
 
 instance RestController t b DC UsersController where
+  restIndex _ = do
+    users <- liftLIO $ do
+      policy <- gitstar
+      findAll policy $ select [] "users"
+    renderHtml $ listUsers users
+
   -- /:id where :id is the user name
   restShow _ uName = do
     policy <- liftLIO gitstar

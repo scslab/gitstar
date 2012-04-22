@@ -8,6 +8,7 @@
 module Views.Projects ( showProject
                       , editProject
                       , newProject
+                      , listProjects
                       ) where
 
 import Prelude hiding (div, id, span)
@@ -28,6 +29,16 @@ transformAppUrl url user proj =
         join joiner (x:[]) = x
         join joiner (x:xs) = x ++ joiner ++ (join joiner xs)
         join _ [] = []
+
+listProjects :: [Project] -> Html
+listProjects projects = do
+  div ! class_ "page-header" $
+    h1 $ "GitStar Projects"
+  ul $ do
+    forM_ projects $ \project -> do
+      li $ p $ a ! href
+        (toValue $ "/" ++ projectOwner project ++ "/" ++ projectName project) $ do
+          toHtml $ projectOwner project ++ "/" ++ projectName project
 
 showProject :: UserName -> Project -> [GitstarApp] -> Maybe Project -> Html
 showProject user proj apps forkedProj = do
@@ -67,7 +78,8 @@ showProject user proj apps forkedProj = do
   div ! id "add_app" ! class_ "project_app" ! style "display: none" $ do
     h2 $ "Add an app to your project"
     div $ do
-      input ! type_ "search" ! id "app_search" ! placeholder "Search for an app"
+      input ! type_ "search" ! id "app_search"
+            ! placeholder "Search for an app (e.g., Code Viewer, Wiki etc')"
             ! dataAttribute "provide" "typeahead"
     form ! action (toValue $ "/" ++ projectOwner proj ++ "/" ++ projectName proj)
          ! method "POST" ! id "project" ! style "display: none" $ do

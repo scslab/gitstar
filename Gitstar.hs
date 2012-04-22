@@ -18,7 +18,7 @@ server = runAction $ do
   body <- getBody >>= (liftLIO . unlabel)
   prms1 <- parseParams' req body
   void . setParams $ prms1 ++ prms0
-  runActionRoute $ mconcat 
+  runActionRoute $ mconcat
     [ routeTop $ routeAction welcome
     , routeMethod "GET" $ routePattern "/logout" $ routeAction goodbye
     , routeRestController "apps" AppsController
@@ -27,6 +27,7 @@ server = runAction $ do
     , routeRestController "keys" KeysController
     , routeMethod "GET" $ routePattern "/user/edit" $ routeAction userEdit
     , routeMethod "POST" $ routePattern "/user" $ routeAction userUpdate
+    , routeRestController "users" UsersController
     , routeRestController "projects" ProjectsController
     , routeMethod "GET" $ routePattern "/:user_name" $ mconcat
       [ routeName "keys" $ routeAction listKeys
