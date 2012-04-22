@@ -100,6 +100,8 @@ $(function() {
     $("iframe.project_app").attr("src", this.href);
     return false;
   });
+  
+  $($("#apps > li > a.external")[0]).trigger("click")
 
 
   $("input[data-provide='typeahead']#app_search").typeahead({
