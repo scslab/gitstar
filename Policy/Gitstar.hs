@@ -554,7 +554,7 @@ partialProjectUpdate username projname ldoc = do
                              | (v == (val False)) ||
                                (v == (val ("0" :: String))) ||
                                (v == (val ("off" :: String))) -> doc0
-                      Nothing -> ("public" =: (isPublic proj)):doc0
+                      _       -> ("public" =: (isPublic proj)):doc0
              -- readers/collaborators might correspond to empty list
              -- which is an input field of form: readers[]=""
              doc2 = filterEmptyList "readers" $
