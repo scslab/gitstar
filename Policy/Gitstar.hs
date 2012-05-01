@@ -36,6 +36,7 @@ import Control.Monad
 
 import Data.Maybe
 import Data.List (isInfixOf, stripPrefix)
+import qualified Data.List as List
 import Data.Typeable
 import Hails.Data.LBson hiding ( map, head, break
                                , tail, words, key, filter
@@ -85,27 +86,21 @@ instance MkToLabeledDocument GitstarPolicy where
     
 
 instance PolicyGroup GitstarPolicy where
-  expandGroup self princ
-                      | princ `matches` "#canread_" = do
-                          let princS = S8.unpack . name $ princ
-                          let projId = read (drop 9 princS) :: ObjectId
-                          mproj <- liftLIO $ findBy self "projects" "_id" projId
-                          case mproj of
-                            Just proj -> return $ map principal $ readers proj
-                            Nothing -> return [princ]
-                      | princ `matches` "#canwrite_" = do
-                          let princS = S8.unpack . name $ princ
-                          let projId = read (drop 10 princS) :: ObjectId
-                          mproj <- liftLIO $ findBy self "projects" "_id" projId
-                          case mproj of
-                            Just proj -> return $ map principal $ writers proj
-                            Nothing -> return [princ]
-                      | otherwise = return [princ]
+  expandGroup self princ = 
+    let princName = S8.unpack $ name princ
+        groupPrefixi = [("#canread_",readers), ("#canwrite_",writers)]
+        mpref = List.find (\x -> fst x `List.isPrefixOf` princName) groupPrefixi
+    in case mpref of
+         Nothing -> return [princ]
+         Just (prefix, func) ->  do
+           let projId = read . doStripPrefix prefix $ princName :: ObjectId
+           mproj <- liftLIO $ findBy self "projects" "_id" projId
+           return $ maybe [princ] (map principal . func) mproj
     where readers proj = case projectReaders proj of
                            Right rdrs -> writers proj ++ rdrs
                            Left _ -> []
           writers proj = (projectOwner proj):(projectCollaborators proj)
-          matches princ pref = isJust $ stripPrefix pref (S8.unpack . name $ princ)
+          doStripPrefix p = fromJust . stripPrefix p
   
   relabelGroups self@(GitstarPolicy p _) = relabelGroupsP self p
 
