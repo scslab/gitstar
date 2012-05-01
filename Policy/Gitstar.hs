@@ -35,21 +35,20 @@ import Config
 import Control.Monad
 
 import Data.Maybe
-import Data.List (isInfixOf)
+import Data.List (isInfixOf, stripPrefix)
 import Data.Typeable
 import Hails.Data.LBson hiding ( map, head, break
                                , tail, words, key, filter
-                               , dropWhile, split, foldl
+                               , dropWhile, drop, split, foldl
                                , notElem, isInfixOf)
 
 import Hails.App
 import Hails.Database
 import Hails.Database.MongoDB hiding ( Action, map, head, break
                                      , tail, words, key, filter
-                                     , dropWhile, split, foldl
+                                     , dropWhile, drop, split, foldl
                                      , notElem, isInfixOf)
 import Hails.Database.MongoDB.Structured
-
 import Data.IterIO.Http
 import Hails.IterIO.HttpClient
 
@@ -84,6 +83,31 @@ instance DatabasePolicy GitstarPolicy where
 instance MkToLabeledDocument GitstarPolicy where
   mkToLabeledDocument (GitstarPolicy privs _) = toDocumentP privs
     
+
+instance PolicyGroup GitstarPolicy where
+  expandGroup self princ
+                      | princ `matches` "#canread_" = do
+                          let princS = S8.unpack . name $ princ
+                          let projId = read (drop 9 princS) :: ObjectId
+                          mproj <- liftLIO $ findBy self "projects" "_id" projId
+                          case mproj of
+                            Just proj -> return $ map principal $ readers proj
+                            Nothing -> return [princ]
+                      | princ `matches` "#canwrite_" = do
+                          let princS = S8.unpack . name $ princ
+                          let projId = read (drop 10 princS) :: ObjectId
+                          mproj <- liftLIO $ findBy self "projects" "_id" projId
+                          case mproj of
+                            Just proj -> return $ map principal $ writers proj
+                            Nothing -> return [princ]
+                      | otherwise = return [princ]
+    where readers proj = case projectReaders proj of
+                           Right rdrs -> writers proj ++ rdrs
+                           Left _ -> []
+          writers proj = (projectOwner proj):(projectCollaborators proj)
+          matches princ pref = isJust $ stripPrefix pref (S8.unpack . name $ princ)
+  
+  relabelGroups self@(GitstarPolicy p _) = relabelGroupsP self p
 
 -- | Extract the principal of a DCLabel singleton component.
 extractPrincipal :: Component -> Maybe Principal
