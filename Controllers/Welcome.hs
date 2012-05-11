@@ -27,8 +27,7 @@ welcome = do
   homeHtml $ welcomeView usr
 
 goodbye :: Action t b DC ()
-goodbye = do
-  usr <- getHailsUser
+goodbye = withUserOrRedirectToAuth $ \usr -> do
   req <- getHttpReq
   let domain = Just $ takeExtensions $ S8.unpack $ reqHost req
   delCookie "_hails_user" domain

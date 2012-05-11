@@ -54,7 +54,7 @@ fingerprint key = separate . show $ md5 keyData
         key64 = case S8.words keyVal of
                   (_:blob:_) -> blob
                   [blob]     -> blob
-                  _          -> error "fingerprint: invalid key"
+                  _          -> S8.empty
         keyVal = case sshKeyValue key of
                    (Binary bs) -> bs
         separate (a:b:c:xs) = a:b:':':separate (c:xs)

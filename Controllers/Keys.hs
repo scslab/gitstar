@@ -20,7 +20,7 @@ import Views.Keys
 import LIO
 import LIO.DCLabel
 
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, fromMaybe)
 import Data.IterIO.Http.Support
 import qualified Data.ByteString.Lazy as L
 
@@ -33,7 +33,7 @@ data KeysController = KeysController
 listKeys :: Action t b DC  ()
 listKeys = do
   uName <- getParamVal "user_name"
-  curUser <- getHailsUser
+  curUser <- fromMaybe "" `liftM` getHailsUser
   doListKeys (curUser == uName) uName
 
 -- | Given a labeled username actually list the keys for the user.
@@ -50,20 +50,18 @@ doListKeys updateFlag uName = do
                       (["keys" =: map convert ks] :: Document DCLabel)
 
 instance RestController t (DCLabeled L.ByteString) DC KeysController where
-  restIndex _ = getHailsUser >>= doListKeys True
+  restIndex _ = withUserOrRedirectToAuth (doListKeys True)
 
-  restNew _ = renderHtml newUserKey
+  restNew _ = withUserOrRedirectToAuth $ \_ -> renderHtml newUserKey
 
-  restCreate _ = do
-    uName  <- getHailsUser
+  restCreate _ = withUserOrRedirectToAuth $ \uName -> do
     ldoc   <- bodyToLDoc
     void . liftLIO $ do luser  <- addUserKey uName ldoc
                         policy <- gitstar
                         saveLabeledRecord policy luser
     redirectTo "/keys"
 
-  restDestroy _ _ = do
-    uName <- getHailsUser
+  restDestroy _ _ = withUserOrRedirectToAuth $ \uName -> do
     ldoc  <- bodyToLDoc
     u0 <- liftLIO $ getOrCreateUser uName
     u1 <- liftLIO $ do luser  <- delUserKey uName ldoc
