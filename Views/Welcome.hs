@@ -30,7 +30,11 @@ welcomeView musername = do
             ] :: String)
            "Take a look at the "
            a ! href "/scs/hails" $ "/scs/hails"
-           " project: the code viewer and wiki are \"third-party\" apps!"
+           " project: the code viewer and wiki are \"third-party untrusted\""
+           " apps! Hails gives you server-side guarantees, but to prevent"
+           " leaks from your browser you need to install "
+           a ! href "/scs/hails-chrome" $ "our chrome extension"
+           "."
     p $ br
     div ! class_ "row-fluid" $ do
     case musername of

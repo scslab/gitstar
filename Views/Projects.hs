@@ -43,8 +43,7 @@ listProjects projects = do
 
 showProject :: Maybe UserName -> Project -> [GitstarApp] -> Maybe Project -> Html
 showProject muser proj apps forkedProj = do
-  let user = fromMaybe "" muser
-      at   = maybe "" (const "@") muser
+  let user = fromMaybe "anonymous" muser
       isCurUser = user == projectOwner proj
   div ! class_ "page-header" $
     h1 $ do
@@ -67,7 +66,7 @@ showProject muser proj apps forkedProj = do
     "Repo: "
     code $ do
       "git clone "
-      strong $ toHtml $ "ssh://" ++ user ++ at ++ "gitstar.com/"
+      strong $ toHtml $ "ssh://" ++ user ++ "@gitstar.com/"
                                  ++ projectRepository proj
   case forkedProj of
     Nothing -> ""
