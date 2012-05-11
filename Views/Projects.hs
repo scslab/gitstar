@@ -55,8 +55,10 @@ showProject muser proj apps forkedProj = do
         form ! action "/projects" ! method "POST" ! id "fork_proj" $ do
           input ! type_ "hidden" ! name "_fork"
                 ! value (toValue . show . projectObjId $ proj)
-          a ! href "#fork_proj"
-            ! class_ "btn btn-primary gh-button fork icon white fork-proj" $ "Fork"
+          unless (isNothing muser) $ 
+           a ! href "#fork_proj"
+             ! class_ "btn btn-primary gh-button fork icon white fork-proj" $
+             "Fork"
       when isCurUser $ small $ a ! href (toValue $ "/" ++ projectOwner proj ++ "/"
                               ++ projectName proj ++ "/edit") $ " edit"
   p ! class_ "well" $ toHtml $ let desc = projectDescription proj
