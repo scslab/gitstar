@@ -27,7 +27,7 @@ import Hails.Database.MongoDB hiding (reverse)
 data AppsController = AppsController
 
 instance RestController t (DCLabeled L8.ByteString) DC AppsController where
-  restIndex _ = withUserOrRedirectToAuth $ \uName -> do
+  restIndex _ = withUserOrDoAuth $ \uName -> do
     atype <- requestHeader "accept" >>= return . (maybe "" id)
     case S.breakSubstring "application/json" atype of
       (x,y) | S.null y -> do
@@ -53,24 +53,24 @@ instance RestController t (DCLabeled L8.ByteString) DC AppsController where
                    , ("url", appUrl app)
                    , ("owner", appOwner app)] :: Map String String) apps 
 
-  restEdit _ aid = withUserOrRedirectToAuth $ \user -> do
+  restEdit _ aid = withUserOrDoAuth $ \user -> do
     mapp <- liftLIO $ do
       policy <- gitstar
       findBy policy "apps" "_id" $ L8.unpack aid
     with404orJust mapp $ \app -> do
       renderHtml $ editApp app user
 
-  restNew _ = withUserOrRedirectToAuth $ \user -> do
+  restNew _ = withUserOrDoAuth $ \user -> do
     renderHtml $ newApp user
 
-  restCreate _ = withUserOrRedirectToAuth $ \_ -> do
+  restCreate _ = withUserOrDoAuth $ \_ -> do
     policy <- liftLIO gitstar
     ldoc   <- bodyToLDoc
     liftLIO $ withDB policy $ do
       insert "apps" ldoc
     redirectTo "/apps"
 
-  restUpdate _ aid = withUserOrRedirectToAuth $ \_ -> do
+  restUpdate _ aid = withUserOrDoAuth $ \_ -> do
     policy <- liftLIO gitstar
     ldoc   <- bodyToLDoc
     doc <- liftLIO $ unlabel ldoc

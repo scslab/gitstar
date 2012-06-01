@@ -58,7 +58,7 @@ instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
               showProject muser proj apps frkdP
 
 
-  restEdit _ projName = withUserOrRedirectToAuth $ \curUsr -> do
+  restEdit _ projName = withUserOrDoAuth $ \curUsr -> do
     policy <- liftLIO gitstar
     uName  <- getParamVal "user_name"
     if curUsr /= uName
@@ -69,12 +69,12 @@ instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
               with404orJust mProj $ \proj -> renderHtml $ editProject proj
 
   -- /projects/new
-  restNew _ = withUserOrRedirectToAuth $ \_ -> renderHtml newProject
+  restNew _ = withUserOrDoAuth $ \_ -> renderHtml newProject
 
   -- Create a new project (from scractch or fork)
   -- TODO: mkProject may throw an exception if the document is not
   -- "well-formed". We can handle this more gracefully.
-  restCreate _ = withUserOrRedirectToAuth $ \uName -> do
+  restCreate _ = withUserOrDoAuth $ \uName -> do
     policy <- liftLIO gitstar
     ldoc   <- bodyToLDoc
     lproj  <- liftLIO $ mkProject uName ldoc
@@ -103,7 +103,7 @@ instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
                          (Just (Project {})) -> True
                          _                   -> False
 
-  restUpdate _ projName = withUserOrRedirectToAuth $ \uName -> do
+  restUpdate _ projName = withUserOrDoAuth $ \uName -> do
     ldoc   <- bodyToLDoc
     let pName = L8.unpack projName
     res    <- liftLIO $ do lproj <- partialProjectUpdate uName pName ldoc

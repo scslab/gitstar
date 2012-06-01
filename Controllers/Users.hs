@@ -49,13 +49,13 @@ instance RestController t b DC UsersController where
 
 -- | Show edit form for user
 userEdit :: Action t b DC ()
-userEdit = withUserOrRedirectToAuth $ \uName -> do
+userEdit = withUserOrDoAuth $ \uName -> do
   user <- liftLIO $ getOrCreateUser uName
   renderHtml $ editUser user
 
 -- | Update user's profile
 userUpdate :: Action t (DCLabeled L8.ByteString) DC ()
-userUpdate = withUserOrRedirectToAuth $ \uName -> do
+userUpdate = withUserOrDoAuth $ \uName -> do
   ldoc   <- bodyToLDoc 
   void . liftLIO $ do luser <- partialUserUpdate uName ldoc
                       policy <- gitstar

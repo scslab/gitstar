@@ -50,18 +50,18 @@ doListKeys updateFlag uName = do
                       (["keys" =: map convert ks] :: Document DCLabel)
 
 instance RestController t (DCLabeled L.ByteString) DC KeysController where
-  restIndex _ = withUserOrRedirectToAuth (doListKeys True)
+  restIndex _ = withUserOrDoAuth (doListKeys True)
 
-  restNew _ = withUserOrRedirectToAuth $ \_ -> renderHtml newUserKey
+  restNew _ = withUserOrDoAuth $ \_ -> renderHtml newUserKey
 
-  restCreate _ = withUserOrRedirectToAuth $ \uName -> do
+  restCreate _ = withUserOrDoAuth $ \uName -> do
     ldoc   <- bodyToLDoc
     void . liftLIO $ do luser  <- addUserKey uName ldoc
                         policy <- gitstar
                         saveLabeledRecord policy luser
     redirectTo "/keys"
 
-  restDestroy _ _ = withUserOrRedirectToAuth $ \uName -> do
+  restDestroy _ _ = withUserOrDoAuth $ \uName -> do
     ldoc  <- bodyToLDoc
     u0 <- liftLIO $ getOrCreateUser uName
     u1 <- liftLIO $ do luser  <- delUserKey uName ldoc
