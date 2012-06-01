@@ -2,15 +2,18 @@
 #if PRODUCTION
 {-# LANGUAGE Safe #-}
 #endif
-{-# LANGUAGE OverloadedStrings #-}
-
+{-# LANGUAGE OverloadedStrings #-} 
 module Layouts where
 
 import LIO
 import Policy.Gitstar
+import Utils (auth_url)
+
 import Data.Maybe
 import qualified Data.ByteString.Lazy.Char8 as L8
 import Data.IterIO.Http.Support
+
+import Control.Monad
 
 import Hails.App
 import Hails.Crypto
@@ -22,9 +25,10 @@ import qualified Text.Blaze.Renderer.Utf8 as R (renderHtml)
 
 renderHtml :: Html -> Action t b DC ()
 renderHtml htmlBody = do
-  uName <- getHailsUser
-  user <- liftLIO $ getOrCreateUser uName
-  render "text/html" $ R.renderHtml $ application user htmlBody
+  muName <- getHailsUser
+  muser <- liftLIO $ maybe (return Nothing) mkUser muName
+  render "text/html" $ R.renderHtml $ application muser htmlBody
+    where mkUser uName = Just `liftM` getOrCreateUser uName
 
 stylesheet :: String -> Html
 stylesheet uri = link ! rel "stylesheet" ! type_ "text/css" ! href (toValue uri)
@@ -51,8 +55,8 @@ homeLayout content = docTypeHtml $ do
      script ! src "/static/js/flash.js" $ ""
 
 
-application :: User -> Html -> Html
-application user content = docTypeHtml $ do
+application :: Maybe User -> Html -> Html
+application muser content = docTypeHtml $ do
   head $ do
     title $ "GitStar - For hackers and other heretics"
     stylesheet "/static/css/bootstrap.css"
@@ -67,12 +71,29 @@ application user content = docTypeHtml $ do
              li $ a ! href "/users" $ "List Users"
              li $ a ! href "/projects" $ "List Projects"
            ul ! class_ "nav pull-right" $ do
-            let gravatar = show.md5 $ L8.pack $ fromMaybe "" $ userGravatar user
-            li $ a ! href (toValue $ "/" ++ userName user) $
-                  img ! src (toValue $ "https://secure.gravatar.com/avatar/" ++ gravatar ++ "?s=25")
-            li ! class_ "dropdown" $ do
-              a ! href "#" ! class_ "dropdown-toggle" ! dataAttribute "toggle" "dropdown"
-                $ do
+            maybe publicMenu userMenu muser
+     div ! class_ "row" $
+       div ! id "flash-messages" ! class_ "span4 offset4" $ ""
+     div ! class_ "container" $ content
+     script ! src "/static/js/jquery.js" $ ""
+     script ! src "/static/js/jquery.cookie.js" $ ""
+     script ! src "/static/js/bootstrap.min.js" $ ""
+     script ! src "/static/js/bootstrap-typeahead.js" $ ""
+     script ! src "/static/js/application.js" $ ""
+     script ! src "/static/js/flash.js" $ ""
+      where publicMenu = do
+              li $ a ! href (toValue auth_url) $ do
+                span ! class_ "icon-road" $ ""
+                " Login"
+            userMenu user = do
+              let gravatar = show . md5 . L8.pack . fromMaybe "" $
+                                userGravatar user
+              li $ a ! href (toValue $ "/" ++ userName user) $
+                    img ! src (toValue $ "https://secure.gravatar.com/avatar/"
+                                          ++ gravatar ++ "?s=25")
+              li ! class_ "dropdown" $ do
+              a ! href "#" ! class_ "dropdown-toggle" 
+                ! dataAttribute "toggle" "dropdown" $ do
                   toHtml $ userName user
                   b ! class_ "caret" $ ""
               ul ! class_ "dropdown-menu" $ do
@@ -94,13 +115,3 @@ application user content = docTypeHtml $ do
                 li $ a ! href "/logout" $ do
                   span ! class_ "icon-road" $ ""
                   " Logout"
-     div ! class_ "row" $
-       div ! id "flash-messages" ! class_ "span4 offset4" $ ""
-     div ! class_ "container" $ content
-     script ! src "/static/js/jquery.js" $ ""
-     script ! src "/static/js/jquery.cookie.js" $ ""
-     script ! src "/static/js/bootstrap.min.js" $ ""
-     script ! src "/static/js/bootstrap-typeahead.js" $ ""
-     script ! src "/static/js/application.js" $ ""
-     script ! src "/static/js/flash.js" $ ""
-

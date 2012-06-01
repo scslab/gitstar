@@ -31,29 +31,6 @@ import Data.IterIO.Http (respAddHeader)
 
 
 
--- | Find all records that satisfy the query and can be read subject
--- to the current clearance.
-findAll :: (DCRecord a, DatabasePolicy p) => p -> Query DCLabel -> DC ([a])
-findAll policy query = do
-  eRes <- withDB policy $ do
-    find query >>= cursorToRecords []
-  case eRes of
-    Right res -> return res
-    Left _ -> return []
-  where cursorToRecords arr cur = do
-          nc <- next cur
-          case nc of
-            Just ldoc -> do
-              post <- liftLIO $ do
-                clearance <- getClearance
-                if labelOf ldoc `canflowto` clearance then
-                  unlabel ldoc >>= return . fromDocument
-                  else return Nothing
-              let resarr = maybe arr (:arr) post
-              cursorToRecords resarr cur
-            Nothing -> return $ reverse arr
-
-
 -- | Force get parameter value
 getParamVal :: Monad m => S8.ByteString -> Action t b m String
 getParamVal n = (L8.unpack . paramValue . fromJust) `liftM` param n
@@ -85,6 +62,15 @@ bodyToLDoc = do
  body <- getBody
  liftLIO $ labeledDocI req body
 
+--
+--
+--
+
+auth_url :: String
+auth_url = "https://auth.gistar.com"
+{- In dev mode:
+auth_url = "/login"
+-}
 
 --
 -- Flash notifications

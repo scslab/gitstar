@@ -40,7 +40,7 @@ instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
     renderHtml $ listProjects projects
 
   restShow _ projName = do
-    usr <- getHailsUser
+    muser <- getHailsUser
     policy <- liftLIO gitstar
     uName <- getParamVal "user_name"
     mProj <- liftLIO $ findWhere policy $
@@ -55,12 +55,11 @@ instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
         Just "application/bson" ->
           render "application/bson" $ encodeDoc $ toDocument proj
         _ -> renderHtml $
-              showProject usr proj apps frkdP
+              showProject muser proj apps frkdP
 
 
-  restEdit _ projName = do
+  restEdit _ projName = withUserOrDoAuth $ \curUsr -> do
     policy <- liftLIO gitstar
-    curUsr <- getHailsUser
     uName  <- getParamVal "user_name"
     if curUsr /= uName
       then respondStat stat403
@@ -70,14 +69,13 @@ instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
               with404orJust mProj $ \proj -> renderHtml $ editProject proj
 
   -- /projects/new
-  restNew _ = renderHtml newProject
+  restNew _ = withUserOrDoAuth $ \_ -> renderHtml newProject
 
   -- Create a new project (from scractch or fork)
   -- TODO: mkProject may throw an exception if the document is not
   -- "well-formed". We can handle this more gracefully.
-  restCreate _ = do
+  restCreate _ = withUserOrDoAuth $ \uName -> do
     policy <- liftLIO gitstar
-    uName  <- getHailsUser
     ldoc   <- bodyToLDoc
     lproj  <- liftLIO $ mkProject uName ldoc
     proj   <- liftLIO $ unlabel lproj
@@ -105,8 +103,7 @@ instance RestController t (DCLabeled L8.ByteString) DC ProjectsController where
                          (Just (Project {})) -> True
                          _                   -> False
 
-  restUpdate _ projName = do
-    uName  <- getHailsUser
+  restUpdate _ projName = withUserOrDoAuth $ \uName -> do
     ldoc   <- bodyToLDoc
     let pName = L8.unpack projName
     res    <- liftLIO $ do lproj <- partialProjectUpdate uName pName ldoc

@@ -16,6 +16,7 @@ import qualified Prelude
 import Control.Monad
 
 import Data.Monoid
+import Data.Maybe
 
 import Models
 import Data.List.Split
@@ -40,9 +41,10 @@ listProjects projects = do
         (toValue $ "/" ++ projectOwner project ++ "/" ++ projectName project) $ do
           toHtml $ projectOwner project ++ "/" ++ projectName project
 
-showProject :: UserName -> Project -> [GitstarApp] -> Maybe Project -> Html
-showProject user proj apps forkedProj = do
-  let isCurUser = user == projectOwner proj
+showProject :: Maybe UserName -> Project -> [GitstarApp] -> Maybe Project -> Html
+showProject muser proj apps forkedProj = do
+  let user = fromMaybe "anonymous" muser
+      isCurUser = user == projectOwner proj
   div ! class_ "page-header" $
     h1 $ do
       toHtml $ projectName proj
@@ -52,8 +54,10 @@ showProject user proj apps forkedProj = do
         form ! action "/projects" ! method "POST" ! id "fork_proj" $ do
           input ! type_ "hidden" ! name "_fork"
                 ! value (toValue . show . projectObjId $ proj)
-          a ! href "#fork_proj"
-            ! class_ "btn btn-primary gh-button fork icon white fork-proj" $ "Fork"
+          unless (isNothing muser) $ 
+           a ! href "#fork_proj"
+             ! class_ "btn btn-primary gh-button fork icon white fork-proj" $
+             "Fork"
       when isCurUser $ small $ a ! href (toValue $ "/" ++ projectOwner proj ++ "/"
                               ++ projectName proj ++ "/edit") $ " edit"
   p ! class_ "well" $ toHtml $ let desc = projectDescription proj
@@ -62,7 +66,8 @@ showProject user proj apps forkedProj = do
     "Repo: "
     code $ do
       "git clone "
-      strong $ toHtml $ "ssh://" ++ user ++ "@gitstar.com/" ++ projectRepository proj
+      strong $ toHtml $ "ssh://" ++ user ++ "@gitstar.com/"
+                                 ++ projectRepository proj
   case forkedProj of
     Nothing -> ""
     Just fp -> p $ do "Forked from: "
