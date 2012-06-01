@@ -68,6 +68,9 @@ bodyToLDoc = do
 
 auth_url :: String
 auth_url = "https://auth.gistar.com"
+{- In dev mode:
+auth_url = "/login"
+-}
 
 --
 -- Flash notifications
