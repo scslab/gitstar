@@ -20,6 +20,10 @@ server = runAction $ do
   void . setParams $ prms1 ++ prms0
   runActionRoute $ mconcat
     [ routeTop $ routeAction welcome
+{- In dev mode:
+    , routeMethod "GET" $ routePattern "/login" $
+        routeAction (withUserOrDoAuth $ const redirectTo "/")
+-}
     , routeMethod "GET" $ routePattern "/logout" $ routeAction goodbye
     , routeRestController "apps" AppsController
     , routeMethod "POST" $ routePattern "/keys/delete" $
