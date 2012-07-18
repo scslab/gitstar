@@ -6,7 +6,7 @@
 module Layouts where
 
 import LIO
-import Policy.Gitstar
+import Gitstar.Policy
 import Utils (auth_url)
 
 import Data.Maybe
