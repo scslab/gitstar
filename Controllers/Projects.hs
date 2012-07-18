@@ -8,18 +8,16 @@
 module Controllers.Projects ( ProjectsController(..) ) where
 
 import Prelude hiding (lookup)
-import Control.Monad
 
 import Layouts
-import Models
-import Policy.Gitstar
+import Gitstar.Models
+import Gitstar.Policy
 import Utils
 import Views.Projects
 
 import LIO
 import LIO.DCLabel
 
-import Hails.Database.MongoDB (select, look, (=:))
 
 import qualified Data.ByteString.Lazy.Char8 as L8
 import Data.IterIO.Http
@@ -27,8 +25,8 @@ import Data.IterIO.Http.Support
 import Data.Maybe
 
 import Hails.App
-import Hails.Data.LBson (cast', encodeDoc)
 import Hails.Database.MongoDB hiding (Action, reverse, filter, map)
+import Hails.Database.MongoDB.Structured
 
 data ProjectsController = ProjectsController
 

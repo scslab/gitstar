@@ -15,7 +15,7 @@ import Data.Map (fromList, Map)
 import qualified Data.Aeson as JSON (encode)
 import Data.IterIO.Http (stat403)
 import Data.IterIO.Http.Support hiding (Action)
-import Policy.Gitstar
+import Gitstar.Policy
 import Views.Apps
 import Layouts
 import Utils

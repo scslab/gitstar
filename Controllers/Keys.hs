@@ -11,10 +11,10 @@ module Controllers.Keys ( KeysController(..), listKeys ) where
 
 import Control.Monad
 
-import Models
+import Gitstar.Models
 import Layouts
 import Utils
-import Policy.Gitstar
+import Gitstar.Policy
 import Views.Keys
 
 import LIO
@@ -26,6 +26,7 @@ import qualified Data.ByteString.Lazy as L
 
 import Hails.App
 import Hails.Data.LBson hiding (map, key)
+import Hails.Database.MongoDB.Structured
 
 data KeysController = KeysController
 

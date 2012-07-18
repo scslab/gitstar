@@ -18,7 +18,7 @@ import Control.Monad
 import Data.Monoid
 import Data.Maybe
 
-import Models
+import Gitstar.Models
 import Data.List.Split
 import Text.Blaze.Html5 hiding (title, style)
 import Text.Blaze.Html5.Attributes hiding (label, form, span)
