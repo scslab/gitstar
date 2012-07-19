@@ -9,10 +9,10 @@
 
 module Controllers.Users ( UsersController(..), userEdit, userUpdate ) where
 
-import Models
 import Layouts
 import Utils
-import Policy.Gitstar
+import Gitstar.Models
+import Gitstar.Policy
 import Views.Users
 
 import LIO
@@ -24,6 +24,7 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 
 import Hails.App
 import Hails.Database.MongoDB hiding (Action, reverse, filter, map)
+import Hails.Database.MongoDB.Structured
 
 import Control.Monad (void)
 

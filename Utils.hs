@@ -67,7 +67,7 @@ bodyToLDoc = do
 --
 
 auth_url :: String
-auth_url = "https://auth.gistar.com"
+auth_url = "https://auth.gitstar.com"
 {- In dev mode:
 auth_url = "/login"
 -}

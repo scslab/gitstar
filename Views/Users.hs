@@ -10,7 +10,7 @@ module Views.Users  where
 import Prelude hiding (div, span)
 import Control.Monad
 
-import Models
+import Gitstar.Models
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (id, label, form, span)
 
