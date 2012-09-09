@@ -2,6 +2,7 @@
 #if PRODUCTION
 {-# LANGUAGE Safe #-}
 #endif
+#define DEVELOPMENT
 module Gitstar where
 
 import Data.ByteString.Char8
@@ -20,10 +21,10 @@ server = runAction $ do
   void . setParams $ prms1 ++ prms0
   runActionRoute $ mconcat
     [ routeTop $ routeAction welcome
-{- In dev mode:
+#ifdef DEVELOPMENT
     , routeMethod "GET" $ routePattern "/login" $
         routeAction (withUserOrDoAuth $ const redirectTo "/")
--}
+#endif
     , routeMethod "GET" $ routePattern "/logout" $ routeAction goodbye
     , routeRestController "apps" AppsController
     , routeMethod "POST" $ routePattern "/keys/delete" $
