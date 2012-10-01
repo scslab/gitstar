@@ -7,14 +7,15 @@
 
 module Views.Welcome ( welcomeView, goodbyeView ) where
 
-import Prelude hiding (id, div, span)
-import Utils (auth_url)
+import Prelude hiding (id, div, span, (++))
 
+import Gitstar.Models
 
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (label, form, span)
+import Utils
 
-welcomeView :: Maybe String -> Html
+welcomeView :: Maybe UserName -> Html
 welcomeView musername = do
   div ! class_ "hero-unit" $ do
     div ! class_ "page-header" $
@@ -39,7 +40,7 @@ welcomeView musername = do
     div ! class_ "row-fluid" $ do
     case musername of
       Nothing -> do
-        div ! class_ "span4" $ a ! href (toValue auth_url)
+        div ! class_ "span4" $ a ! href "/login"
             ! class_ "btn btn-large btn-primary" $ "Login"
         div ! class_ "span4" $ a ! href "/users"
             ! class_ "btn btn-large btn-primary" $ "List Users"
@@ -56,7 +57,7 @@ welcomeView musername = do
         div ! class_ "span3" $ a ! href "/apps/new"
             ! class_ "btn btn-large btn-primary" $ "Register an App"
 
-goodbyeView :: String -> Html
+goodbyeView :: UserName -> Html
 goodbyeView username = do
   div ! class_ "hero-unit" ! id "logout" $ do
     div ! class_ "page-header" $

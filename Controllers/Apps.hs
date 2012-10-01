@@ -7,62 +7,59 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Controllers.Apps ( AppsController(..) ) where
+module Controllers.Apps ( appsController ) where
 
-import qualified Data.ByteString.Lazy.Char8 as L8
-import qualified Data.ByteString as S
+import LIO
+
+import qualified Data.ByteString.Char8 as S8
 import Data.Map (fromList, Map)
+import Data.Maybe
+import qualified Data.Text as T
 import qualified Data.Aeson as JSON (encode)
-import Data.IterIO.Http (stat403)
-import Data.IterIO.Http.Support hiding (Action)
 import Gitstar.Policy
 import Views.Apps
 import Layouts
+import Hails.HttpServer
+import Hails.Database hiding (lookup)
+import Hails.Database.Structured
+import Hails.Web.REST
+import Hails.Web.Responses
+import Hails.Web.Controller
+
 import Utils
-import Hails.App
-import Hails.Database
-import Hails.Database.MongoDB.Structured
-import Hails.Database.MongoDB hiding (reverse)
 
-data AppsController = AppsController
-
-instance RestController t (DCLabeled L8.ByteString) DC AppsController where
-  restIndex _ = withUserOrDoAuth $ \uName -> do
-    atype <- requestHeader "accept" >>= return . (maybe "" id)
-    case S.breakSubstring "application/json" atype of
-      (x,y) | S.null y -> do
-        apps <- liftLIO $ do
-          policy <- gitstar
-          eapps <- withDB policy $ do
-            cur <- find $ select [ "owner" =: uName ] "apps"
-            cursorToApps cur []
-          either (fail . show) return $ eapps
+appsController :: RESTController ()
+appsController = do
+  index $ withUserOrDoAuth $ \uName -> do
+    req <- request >>= liftLIO . unlabel
+    let atype = fromMaybe "" $ lookup "accept" (requestHeaders req)
+    case S8.breakSubstring "application/json" atype of
+      (_,y) | S8.null y -> do
+        apps <- liftLIO $ withGitstar $
+            findAll $ select [ "owner" -: uName ] "apps"
         renderHtml $ appsIndex apps
             | otherwise -> do
-        apps <- liftLIO $ do
-          policy <- gitstar
-          eapps <- withDB policy $ do
-            cur <- find $ select [] "apps"
-            cursorToApps cur []
-          either (fail . show) return $ eapps
-        render "application/json" $ JSON.encode $ Prelude.map (\app ->
+        apps <- liftLIO $ withGitstar $
+            findAll $ select [ "owner" -: uName ] "apps"
+        respond $ ok "application/json" $ JSON.encode $ Prelude.map (\app ->
           fromList [ ("_id", appId app)
                    , ("title", appTitle app)
                    , ("name", appName app)
                    , ("description", appDescription app)
                    , ("url", appUrl app)
-                   , ("owner", appOwner app)] :: Map String String) apps 
+                   , ("owner", appOwner app)] :: Map T.Text T.Text) apps 
 
-  restEdit _ aid = withUserOrDoAuth $ \user -> do
-    mapp <- liftLIO $ do
-      policy <- gitstar
-      findBy policy "apps" "_id" $ L8.unpack aid
-    with404orJust mapp $ \app -> do
-      renderHtml $ editApp app user
+  edit $ withUserOrDoAuth $ \user -> do
+    (Just aid) <- queryParam "id"
+    mapp <- liftLIO $ withGitstar $
+      findBy "apps" "_id" $ S8.unpack aid
+    case mapp of
+      Just app -> renderHtml $ editApp app user
+      Nothing -> return notFound
 
-  restNew _ = withUserOrDoAuth $ \user -> do
+  new $ withUserOrDoAuth $ \user ->
     renderHtml $ newApp user
-
+{-
   restCreate _ = withUserOrDoAuth $ \_ -> do
     policy <- liftLIO gitstar
     ldoc   <- bodyToLDoc
@@ -79,16 +76,5 @@ instance RestController t (DCLabeled L8.ByteString) DC AppsController where
         save "apps" ldoc
       redirectTo "/apps"
       else respondStat stat403
-
--- | Unlabels each document in the result set of a cursor and
--- transforms it to a 'GitstarApp'.
-cursorToApps :: Cursor DCLabel -> [GitstarApp] -> Action DCLabel TCBPriv () [GitstarApp]
-cursorToApps cur arr = do
-  nc <- next cur
-  case nc of
-    Just ldoc -> do
-      doc <- liftLIO $ unlabel ldoc
-      let resarr = maybe arr (:arr) (fromDocument doc)
-      cursorToApps cur $ resarr
-    Nothing -> return $ reverse arr
+-}
 

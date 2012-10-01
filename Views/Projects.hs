@@ -11,25 +11,28 @@ module Views.Projects ( showProject
                       , listProjects
                       ) where
 
-import Prelude hiding (div, id, span)
+import Prelude hiding (div, id, span, (++), null)
 import qualified Prelude
 import Control.Monad
 
 import Data.Monoid
 import Data.Maybe
+import Data.Text (Text, splitOn, null)
 
 import Gitstar.Models
-import Data.List.Split
 import Text.Blaze.Html5 hiding (title, style)
 import Text.Blaze.Html5.Attributes hiding (label, form, span)
 
-transformAppUrl :: String -> String -> String -> String
+(++) :: Monoid a => a -> a -> a
+(++) = mappend
+
+transformAppUrl :: Text -> Text -> Text -> Text
 transformAppUrl url user proj =
   replace "$user" user $ replace "$project" proj url
   where replace wrd to = (join to) . (splitOn wrd)
         join joiner (x:[]) = x
         join joiner (x:xs) = x ++ joiner ++ (join joiner xs)
-        join _ [] = []
+        join _ [] = mempty
 
 listProjects :: [Project] -> Html
 listProjects projects = do
@@ -89,6 +92,7 @@ showProject muser proj apps forkedProj = do
               ! dataAttribute "provide" "typeahead"
       form ! action (toValue $ "/" ++ projectOwner proj ++ "/" ++ projectName proj)
            ! method "POST" ! id "project" ! style "display: none" $ do
+        input ! type_ "hidden" ! name "_method" ! value "PUT"
         div ! id "app_description" $ ""
         forM apps $ \app -> do
           input ! type_ "hidden" ! name "apps[]" ! value (toValue $ appId app)
@@ -97,11 +101,11 @@ showProject muser proj apps forkedProj = do
 
 formProject :: Maybe Project -> Html
 formProject mproj = do
-  let act = toValue $ (maybe "/projects" (\proj -> "/" ++ projectOwner proj
-                                              ++ "/" ++ projectName proj) mproj)
-  form ! action act ! method "POST" ! id "project" $ do
+  form ! action "/projects" ! method "POST" ! id "project" $ do
     case mproj of
-      Just _ -> return () 
+      Just proj -> do
+        input ! type_ "hidden" ! name "_method" ! value "PUT"
+        input ! type_ "hidden" ! name "name" ! value (toValue (projectName proj))
       Nothing -> div $ do
                    label "Name"
                    input ! type_ "text" ! name "name"
@@ -183,3 +187,4 @@ newProject = do
   div ! class_ "page-header" $
     h1 "New Project"
   formProject Nothing
+

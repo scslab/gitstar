@@ -3,46 +3,29 @@
 {-# LANGUAGE Safe #-}
 #endif
 #define DEVELOPMENT
+{-# LANGUAGE OverloadedStrings #-}
 module Gitstar where
 
-import Data.ByteString.Char8
-import Data.Monoid
-import Hails.App
+import Hails.HttpServer
+import Hails.Web.Router
+import Hails.Web.Responses
 import Controllers
-import Data.IterIO.Http.Support
-import Control.Monad (void)
 
-server :: AppReqHandler
-server = runAction $ do
-  req <- getHttpReq
-  prms0 <- params
-  body <- getBody >>= (liftLIO . unlabel)
-  prms1 <- parseParams' req body
-  void . setParams $ prms1 ++ prms0
-  runActionRoute $ mconcat
-    [ routeTop $ routeAction welcome
-#ifdef DEVELOPMENT
-    , routeMethod "GET" $ routePattern "/login" $
-        routeAction (withUserOrDoAuth $ const redirectTo "/")
-#endif
-    , routeMethod "GET" $ routePattern "/logout" $ routeAction goodbye
-    , routeRestController "apps" AppsController
-    , routeMethod "POST" $ routePattern "/keys/delete" $
-        routeAction $ restDestroy KeysController undefined
-    , routeRestController "keys" KeysController
-    , routeMethod "GET" $ routePattern "/user/edit" $ routeAction userEdit
-    , routeMethod "POST" $ routePattern "/user" $ routeAction userUpdate
-    , routeRestController "users" UsersController
-    , routeRestController "projects" ProjectsController
-    , routeMethod "GET" $ routePattern "/:user_name" $ mconcat
-      [ routeName "keys" $ routeAction listKeys
-      , routePattern "/:id/edit" $ to restEdit ProjectsController]
-    , routeMethod "GET" $ routePattern "/:user_name/:id" $
-                          to restShow ProjectsController
-    , routeMethod "POST" $ routePattern "/:user_name/:id" $
-                           to restUpdate ProjectsController
-    , routePattern "/:id" $ to restShow UsersController
-    ]
-      where to fn ctr = routeAction $
-                          do (Just var) <- param $ pack "id"
-                             fn ctr $ paramValue var
+import Utils
+
+server :: Application
+server = mkRouter $ do
+    routeTop welcome
+    routeMethod GET $ routeName "login" $
+      withUserOrDoAuth $ const $ return $ redirectTo "/"
+    routeMethod GET $ routeName "logout" goodbye
+    routeName "apps" appsController
+    routeName "keys" keysController
+    routeMethod GET $ routeName "user" $ routeName "edit" userEdit
+    routeMethod PUT $ routeName "user" userUpdate
+    routeName "projects" projectsController
+    routeName "users" usersController
+    routeVar "id" $ do
+      routeTop $ userShow
+      routeName "keys" listKeys
+    routeVar "user_name" projectsController

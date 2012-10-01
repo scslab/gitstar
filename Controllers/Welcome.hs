@@ -9,27 +9,29 @@
 
 module Controllers.Welcome ( welcome, goodbye ) where
 
+import LIO
+
 import Layouts
-import Utils
 import Views.Welcome
 
-import Hails.App
-import LIO.DCLabel
+import Hails.HttpServer
+import Hails.Web.Controller
 
 import qualified Data.ByteString.Char8 as S8
-import Data.IterIO.Http
-import Data.IterIO.Http.Support
 import System.FilePath (takeExtensions)
 
-welcome :: Action t b DC ()
+import Utils
+
+welcome :: Controller Response
 welcome = do
   usr <- getHailsUser
   homeHtml $ welcomeView usr
 
-goodbye :: Action t b DC ()
+goodbye :: Controller Response
 goodbye = withUserOrDoAuth $ \usr -> do
-  req <- getHttpReq
-  let domain = Just $ takeExtensions $ S8.unpack $ reqHost req
-  delCookie "_hails_user" domain
-  delCookie "_hails_user_hmac" domain
+  req <- request >>= liftLIO . unlabel
+  let domain = Just $ takeExtensions $ S8.unpack $ serverName req
+--  delCookie "_hails_user" domain
+--  delCookie "_hails_user_hmac" domain
   homeHtml $ goodbyeView usr
+

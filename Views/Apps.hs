@@ -7,13 +7,16 @@
 
 module Views.Apps where
 
-import Prelude hiding (div, span)
+import Prelude hiding (div, span, (++))
 import Control.Monad
+import Data.Monoid
 
 import Gitstar.Models
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (id, label, form, span)
 
+(++) :: Monoid a => a -> a -> a
+(++) = mappend
 
 appForm :: Maybe GitstarApp -> UserName -> Html
 appForm mapp user = 

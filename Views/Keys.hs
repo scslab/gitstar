@@ -7,13 +7,14 @@
 
 module Views.Keys where
 
-import Prelude hiding (div, span, id)
+import Prelude hiding (div, span, id, (++))
 import Control.Monad
 
 import Gitstar.Models
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (label, form, span)
 
+import Utils
 
 formUserKey :: Html
 formUserKey = 
@@ -44,17 +45,19 @@ keysIndex updateFlag keys = do
       th "Title"
       th "Fingerprint"
       when updateFlag $ th ""
-    form ! action "/keys/delete" ! method "POST"
-         ! id "del_keys" $ forM_ keys $ \k -> do
+    forM_ keys $ \k -> do
       tr $ do
         td $ toHtml (sshKeyTitle k)
         td $ toHtml $ fingerprint k
         when updateFlag $ td $ do
-            a ! href "#del_key"
-              ! dataAttribute "key" (toValue . show . sshKeyId $ k)
-              ! class_ "btn btn-danger btn-small" $ do
-                span ! class_ "icon-trash icon-white" $ ""
-                "Remove"
+        form ! action (toValue $ "/keys/" ++ (show . sshKeyId $ k))
+          ! method "POST"
+          ! class_ "del_keys" $ do
+          input ! type_ "hidden" ! name "_method" ! value "DELETE"
+          input ! type_ "hidden" ! name "_id" ! value (toValue . show . sshKeyId $ k)
+          input ! type_ "submit"
+                ! class_ "btn btn-danger btn-small"
+                ! value "Remove"
 
 newUserKey :: Html
 newUserKey = do

@@ -50,7 +50,7 @@ $(function() {
 
   $("a[href='#rm_reader']").live("click", function() {
     $("input[name='readers[]'][value='"
-      + $(this).data("name") + "']").parent().remove()
+      + $(this).data("name") + "']").parent().remove();
     return false;
   });
 
@@ -59,23 +59,22 @@ $(function() {
     isPub = $(this).is(':checked');
     $("#new_reader").prop('disabled',isPub);
     if( isPub) {
-      $("ul#readers").each(function () { $(this).remove() });
+      $("ul#readers").each(function () { $(this).remove(); });
     }
     return false;
   });
 
   /* Handle key deletion */
   $("a[href='#del_key']").live("click", function() {
-    form = $("#del_keys")
-    form.append("<input type='hidden' name='_delete' value='"
-                + $(this).data("key") + "'/>");
-    form.submit()
+    form = $("#del_keys");
+    form.append("<input type='hidden' name='_method' value='delete'/>");
+    form.submit();
     return false;
   });
 
   /* Handle fork */
   $("a[href='#fork_proj']").live("click", function() {
-    $("#fork_proj").submit()
+    $("#fork_proj").submit();
     return false;
   });
 

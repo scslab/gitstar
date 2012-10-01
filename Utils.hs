@@ -1,103 +1,59 @@
-{-# LANGUAGE CPP #-}
-#if PRODUCTION
-{-# LANGUAGE Safe #-}
-#endif
 {-# LANGUAGE OverloadedStrings #-}
+module Utils
+  ( (++)
+  , withUserOrDoAuth
+  , with404orJust
+  , md5
+  , getHailsUser
+  , requestHeader
+  , redirectBack
+  ) where
 
-module Utils where
-
+import Prelude hiding ((++))
+import Hails.Data.Hson (Document)
+import Data.Bson.Binary
+import Data.Binary.Put
+import Data.Monoid
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy.Char8 as L8
-import Data.Char (isSpace)
-import Data.Maybe (listToMaybe, fromJust)
-
-import Data.IterIO.Http.Support
-import Hails.Database.MongoDB ( Document
-                              , grantPriv, PrivilegeGrantGate
-                              , labeledDocI )
-import Hails.Data.LBson (genObjectId)
-
-import Control.Monad
-import Control.Monad.Trans.State
-
+import qualified Data.Text as T
+import Gitstar.Models
+import Hails.HttpServer
+import Hails.Web.Controller
+import Hails.Web.Responses
 import LIO
-import LIO.DCLabel
+import Network.HTTP.Types.Header
 
-import Hails.App
-import Hails.Database
-import Hails.Database.MongoDB hiding (Action, reverse, filter, map)
-import Hails.Database.MongoDB.Structured
-import Data.IterIO.Http (respAddHeader)
+(++) :: Monoid a => a -> a -> a
+(++) = mappend
 
+withUserOrDoAuth :: (UserName -> Controller Response) -> Controller Response
+withUserOrDoAuth act = getHailsUser >>= \muser ->
+  case muser of
+    Just user -> act user
+    Nothing -> return $ Response status200 [("X-Hails-Login", "Yes")] ""
 
+with404orJust :: Maybe a -> (a -> Controller Response) -> Controller Response
+with404orJust ma act = case ma of
+                    Just a -> act a
+                    Nothing -> return notFound
 
--- | Force get parameter value
-getParamVal :: Monad m => S8.ByteString -> Action t b m String
-getParamVal n = (L8.unpack . paramValue . fromJust) `liftM` param n
+md5 :: a -> a
+md5 g = g
 
--- | Get (maybe) paramater value and transform it with @f@
-getMParamVal :: Monad m
-             => (L8.ByteString -> a)
-             -> S8.ByteString
-             -> Action t b m (Maybe a)
-getMParamVal f n = fmap (f . paramValue) `liftM` param n
+getHailsUser :: Controller (Maybe UserName)
+getHailsUser = do
+  fmap (fmap (T.pack . S8.unpack)) $ requestHeader "x-hails-user"
 
--- | Convert a Param comma separate value to a list of values
-fromCSList :: Param -> [String]
-fromCSList = map (strip . L8.unpack) . L8.split ',' . paramValue
-  where strip = filter (not . isSpace)
+requestHeader :: HeaderName -> Controller (Maybe S8.ByteString)
+requestHeader name = do
+  req <- request >>= liftLIO . unlabel
+  return $ lookup name $ requestHeaders req
 
-maybeRead :: Read a => String -> Maybe a
-maybeRead = fmap fst . listToMaybe . reads
+redirectBack :: Controller Response
+redirectBack = do
+  mrefr <- requestHeader "referer"
+  return $ case mrefr of
+    Just refr -> redirectTo $ S8.unpack refr
+    Nothing -> redirectTo "/"
 
-with404orJust :: Monad m => Maybe a -> (a -> Action t b m ()) -> Action t b m ()
-with404orJust mval act = case mval of
-                           Nothing -> respond404
-                           Just val -> act val
-
--- | Convert the body to a labeled key-value Bson document.
-bodyToLDoc :: Action t (DCLabeled L8.ByteString) DC (DCLabeled (Document DCLabel))
-bodyToLDoc = do
- req  <- getHttpReq
- body <- getBody
- liftLIO $ labeledDocI req body
-
---
---
---
-
-auth_url :: String
-auth_url = "https://auth.gitstar.com"
-{- In dev mode:
-auth_url = "/login"
--}
-
---
--- Flash notifications
---
-
--- | This sets the @_flash-*@ cookie value to the given message, with
--- a unique message ID.
-flash :: String -> String -> Action t b DC ()
-flash n msg = do
-  oid <- liftLIO genObjectId
-  modify $ \s ->
-    let flashHeader = (S8.pack "Set-Cookie",
-          S8.pack $ "_flash-" ++ n ++ "=" ++ show (show oid ++ "|" ++ msg))
-    in s { actionResp = respAddHeader flashHeader (actionResp s)}
-
-flashInfo :: String -> Action t b DC ()
-flashInfo = flash "info"
-
-flashError :: String -> Action t b DC ()
-flashError = flash "error"
-
-flashSuccess :: String -> Action t b DC ()
-flashSuccess = flash "success"
-
-delCookie :: String -> Maybe String -> Action t b DC ()
-delCookie n mdomain = modify $ \s ->
-  let cHeader = ( S8.pack "Set-Cookie", S8.pack $ n ++ "=;"
-        ++ maybe "" (\d -> "domain=" ++ d ++ ";") mdomain
-        ++ "path=/; expires=Thu, Jan 01 1970 00:00:00 UTC;")
-  in s { actionResp = respAddHeader cHeader (actionResp s)}

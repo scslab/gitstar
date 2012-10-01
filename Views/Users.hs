@@ -7,7 +7,7 @@
 
 module Views.Users  where
 
-import Prelude hiding (div, span)
+import Prelude hiding (div, span, (++))
 import Control.Monad
 
 import Gitstar.Models
@@ -15,8 +15,7 @@ import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (id, label, form, span)
 
 import Data.Maybe
-import qualified Data.ByteString.Lazy.Char8 as L8
-import Hails.Crypto
+import Utils
 
 listUsers :: [User] -> Html
 listUsers users = do
@@ -25,7 +24,7 @@ listUsers users = do
   ul $ do
     forM_ users $ \user -> do
       li $ p $ a ! href (toValue $ "/" ++ userName user) $ do
-        let gravatar = show.md5 $ L8.pack $ fromMaybe "" $ userGravatar user
+        let gravatar = show . md5 $ fromMaybe "" $ userGravatar user
         img ! src (toValue $ "https://secure.gravatar.com/avatar/" ++ gravatar ++ "?s=25")
         " "
         toHtml $ userName user
@@ -35,7 +34,7 @@ showUser :: User -> [Project] -> Html
 showUser user projs = do
   div ! class_ "page-header" $
     h1 $ do
-      let gravatar = show.md5 $ L8.pack $ fromMaybe "" $ userGravatar user
+      let gravatar = show.md5 $ fromMaybe "" $ userGravatar user
       img ! src (toValue $ "https://secure.gravatar.com/avatar/" ++ gravatar ++ "?s=48")
       toHtml $ " " ++ userName user
   p ! class_ "well" $ do
@@ -70,6 +69,11 @@ editUser user = do
 formUser :: Maybe User -> Html
 formUser muser = 
   form ! action "/user" ! method "POST" $ do
+    case muser of
+      Just _ -> input ! type_ "hidden"
+                      ! name "_method"
+                      ! value "PUT"
+      _ -> return ()
     div $ do
       label "Name"
       input ! type_ "text" ! name "full_name"

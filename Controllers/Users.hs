@@ -7,10 +7,11 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Controllers.Users ( UsersController(..), userEdit, userUpdate ) where
+module Controllers.Users ( usersController, userShow, userEdit, userUpdate ) where
+
+import Prelude hiding ((++), show)
 
 import Layouts
-import Utils
 import Gitstar.Models
 import Gitstar.Policy
 import Views.Users
@@ -19,47 +20,55 @@ import LIO
 import LIO.DCLabel
 
 import Data.Maybe (catMaybes)
-import Data.IterIO.Http.Support
-import qualified Data.ByteString.Lazy.Char8 as L8
+import qualified Data.ByteString.Char8 as S8
+import qualified Data.Text as T
 
-import Hails.App
-import Hails.Database.MongoDB hiding (Action, reverse, filter, map)
-import Hails.Database.MongoDB.Structured
+import Hails.HttpServer
+import Hails.Database
+import Hails.Database.Structured
+import Hails.Web.Controller
+import Hails.Web.REST
+import Hails.Web.Responses
 
-import Control.Monad (void)
+import Utils
+
+userShow :: Controller Response
+userShow = do
+  (Just uName) <- queryParam "id"
+  muser <- liftLIO $ withGitstar $ findBy "users" "_id" $ S8.unpack uName
+  with404orJust muser $ \user -> do
+    -- findBy will return only the projects current app can see
+    projs <- liftLIO $ withGitstar $
+      mapM (findBy "projects" "_id") (userProjects user)
+    let projects = catMaybes projs
+    renderHtml $ showUser user projects
 
 -- | Usercontroller
-data UsersController = UsersController
-
-instance RestController t b DC UsersController where
-  restIndex _ = do
-    users <- liftLIO $ do
-      policy <- gitstar
-      findAll policy $ select [] "users"
+usersController :: RESTController ()
+usersController = do
+  index $ do
+    users <- liftLIO $ withGitstar $
+      findAll $ select [] "users"
     renderHtml $ listUsers users
 
   -- /:id where :id is the user name
-  restShow _ uName = do
-    policy <- liftLIO gitstar
-    muser <- liftLIO $ findBy policy "users" "_id" $ L8.unpack uName
-    with404orJust muser $ \user -> do
-      -- findBy will return only the projects current app can see
-      projs <- liftLIO $ mapM (findBy policy "projects" "_id") (userProjects user)
-      let projects = catMaybes projs
-      renderHtml $ showUser user projects
+  show userShow
 
 -- | Show edit form for user
-userEdit :: Action t b DC ()
+userEdit :: Controller Response
 userEdit = withUserOrDoAuth $ \uName -> do
   user <- liftLIO $ getOrCreateUser uName
   renderHtml $ editUser user
 
 -- | Update user's profile
-userUpdate :: Action t (DCLabeled L8.ByteString) DC ()
+userUpdate :: Controller Response
 userUpdate = withUserOrDoAuth $ \uName -> do
-  ldoc   <- bodyToLDoc 
-  void . liftLIO $ do luser <- partialUserUpdate uName ldoc
-                      policy <- gitstar
-                      saveLabeledRecord policy luser
-  redirectTo $ "/" ++ uName
+  lreq <- request
+  liftLIO $ do
+    ldoc  <- labeledRequestToHson lreq
+    luser  <- partialUserUpdate uName ldoc
+    withGitstar $ do
+            saveLabeledRecord luser
+            unlabel luser
+  respond $ redirectTo $ T.unpack $ "/" ++ uName
 

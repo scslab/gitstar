@@ -2,39 +2,40 @@
 #if PRODUCTION
 {-# LANGUAGE Safe #-}
 #endif
-{-# LANGUAGE OverloadedStrings #-} 
+{-# LANGUAGE OverloadedStrings #-}
 module Layouts where
 
 import LIO
 import Gitstar.Policy
-import Utils (auth_url)
 
 import Data.Maybe
-import qualified Data.ByteString.Lazy.Char8 as L8
-import Data.IterIO.Http.Support
+import Data.Monoid
 
 import Control.Monad
 
-import Hails.App
-import Hails.Crypto
+import Hails.HttpServer
+import Hails.Web.Controller hiding (body)
+import Hails.Web.Responses
 
 import Prelude hiding (head, id, div, span)
 import Text.Blaze.Html5 hiding (map)
 import Text.Blaze.Html5.Attributes hiding (title, span, content)
-import qualified Text.Blaze.Renderer.Utf8 as R (renderHtml)
+import qualified Text.Blaze.Html.Renderer.Utf8 as R (renderHtml)
 
-renderHtml :: Html -> Action t b DC ()
+import Utils
+
+renderHtml :: Html -> Controller Response
 renderHtml htmlBody = do
   muName <- getHailsUser
   muser <- liftLIO $ maybe (return Nothing) mkUser muName
-  render "text/html" $ R.renderHtml $ application muser htmlBody
+  return $ okHtml $ R.renderHtml $ application muser htmlBody
     where mkUser uName = Just `liftM` getOrCreateUser uName
 
 stylesheet :: String -> Html
 stylesheet uri = link ! rel "stylesheet" ! type_ "text/css" ! href (toValue uri)
 
-homeHtml :: Html -> Action t b DC ()
-homeHtml htmlBody = render "text/html" $ R.renderHtml $ homeLayout htmlBody
+homeHtml :: Html -> Controller Response
+homeHtml htmlBody = return $ okHtml $ R.renderHtml $ homeLayout htmlBody
 
 homeLayout :: Html -> Html
 homeLayout content = docTypeHtml $ do
@@ -82,22 +83,21 @@ application muser content = docTypeHtml $ do
      script ! src "/static/js/application.js" $ ""
      script ! src "/static/js/flash.js" $ ""
       where publicMenu = do
-              li $ a ! href (toValue auth_url) $ do
+              li $ a ! href "/login" $ do
                 span ! class_ "icon-road" $ ""
                 " Login"
             userMenu user = do
-              let gravatar = show . md5 . L8.pack . fromMaybe "" $
-                                userGravatar user
-              li $ a ! href (toValue $ "/" ++ userName user) $
+              let gravatar = md5 . fromMaybe "" $ userGravatar user
+              li $ a ! href (toValue $ "/" `mappend` userName user) $
                     img ! src (toValue $ "https://secure.gravatar.com/avatar/"
-                                          ++ gravatar ++ "?s=25")
+                                          `mappend` gravatar `mappend` "?s=25")
               li ! class_ "dropdown" $ do
               a ! href "#" ! class_ "dropdown-toggle" 
                 ! dataAttribute "toggle" "dropdown" $ do
                   toHtml $ userName user
                   b ! class_ "caret" $ ""
               ul ! class_ "dropdown-menu" $ do
-                li $ a ! href (toValue $ "/" ++ userName user) $ do
+                li $ a ! href (toValue $ "/" `mappend` userName user) $ do
                   span ! class_ "icon-user" $ ""
                   " View Profile"
                 li $ a ! href "/user/edit" $ do
@@ -115,3 +115,4 @@ application muser content = docTypeHtml $ do
                 li $ a ! href "/logout" $ do
                   span ! class_ "icon-road" $ ""
                   " Logout"
+
