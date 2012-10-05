@@ -10,12 +10,8 @@ module Utils
   ) where
 
 import Prelude hiding ((++))
-import Hails.Data.Hson (Document)
-import Data.Bson.Binary
-import Data.Binary.Put
 import Data.Monoid
 import qualified Data.ByteString.Char8 as S8
-import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.Text as T
 import Gitstar.Models
 import Hails.HttpServer

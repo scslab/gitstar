@@ -17,7 +17,6 @@ import Gitstar.Policy
 import Views.Users
 
 import LIO
-import LIO.DCLabel
 
 import Data.Maybe (catMaybes)
 import qualified Data.ByteString.Char8 as S8
@@ -64,11 +63,9 @@ userEdit = withUserOrDoAuth $ \uName -> do
 userUpdate :: Controller Response
 userUpdate = withUserOrDoAuth $ \uName -> do
   lreq <- request
-  liftLIO $ do
-    ldoc  <- labeledRequestToHson lreq
-    luser  <- partialUserUpdate uName ldoc
-    withGitstar $ do
-            saveLabeledRecord luser
-            unlabel luser
+  ldoc  <- liftLIO $ labeledRequestToHson lreq
+  luser  <- liftLIO $ partialUserUpdate uName ldoc
+  withGitstar $ do
+          saveLabeledRecord luser
   respond $ redirectTo $ T.unpack $ "/" ++ uName
 

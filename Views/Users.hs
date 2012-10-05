@@ -27,8 +27,11 @@ listUsers users = do
         let gravatar = show . md5 $ fromMaybe "" $ userGravatar user
         img ! src (toValue $ "https://secure.gravatar.com/avatar/" ++ gravatar ++ "?s=25")
         " "
-        toHtml $ userName user
-        maybe (return ()) (\x -> toHtml $ "(" ++ x ++ ")") $ userFullName user
+        case userFullName user of
+          Just fullName -> do
+            toHtml $ fullName
+            toHtml $ " (" ++ userName user ++ ")"
+          Nothing -> toHtml $ userName user
 
 showUser :: User -> [Project] -> Html
 showUser user projs = do
@@ -70,9 +73,12 @@ formUser :: Maybe User -> Html
 formUser muser = 
   form ! action "/user" ! method "POST" $ do
     case muser of
-      Just _ -> input ! type_ "hidden"
-                      ! name "_method"
-                      ! value "PUT"
+      Just user -> do
+        input ! type_ "hidden"
+              ! name "_method"
+              ! value "PUT"
+        input ! type_ "hidden" ! name "_id"
+              ! (value $ toValue $ userName user)
       _ -> return ()
     div $ do
       label "Name"

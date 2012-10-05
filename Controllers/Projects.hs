@@ -16,15 +16,11 @@ import Gitstar.Policy
 import Views.Projects
 
 import LIO
-import LIO.DCLabel
 
-
-import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Text as T
 import Data.Maybe
 
-import Hails.HttpServer
 import Hails.Data.Hson
 import Hails.Database
 import Hails.Database.Structured
@@ -85,8 +81,6 @@ projectsController = do
     proj   <- liftLIO $ unlabel lproj
     let pOwner = projectOwner proj
         pName  = projectName  proj
-        isFork = isJust $ projectForkedFrom proj
-
     exists <- projExists pOwner pName
 
     if exists

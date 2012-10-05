@@ -19,11 +19,9 @@ import Gitstar.Policy
 import Views.Keys
 
 import LIO
-import LIO.DCLabel
 
-import Data.Maybe (fromJust, fromMaybe)
+import Data.Maybe (fromMaybe)
 import qualified Data.ByteString.Char8 as S8
-import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.Text as T
 
 import Hails.HttpServer
@@ -32,8 +30,6 @@ import Hails.Database.Structured
 import Hails.Web.REST
 import Hails.Web.Controller
 import Hails.Web.Responses
-
-import Gitstar.Models
 
 import Utils
 
@@ -48,7 +44,6 @@ listKeys = do
 -- | Given a labeled username actually list the keys for the user.
 doListKeys :: Bool -> UserName -> Controller Response
 doListKeys updateFlag uName = do
-  user <- liftLIO $ getOrCreateUser uName
   keys  <- liftLIO $ userKeys `liftM` getOrCreateUser uName
   atype <- requestHeader "accept"
   case atype of

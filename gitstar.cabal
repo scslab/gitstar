@@ -27,13 +27,12 @@ Library
                  lio >= 0.9 && < 1.0,
                  hails >= 0.9 && < 1.0,
                  http-types >= 0.7,
-                 hails-lite >= 0.1,
                  aeson >= 0.6.0.2 && < 0.7,
                  split >= 0.1.4.2 && < 0.2,
                  text >= 0.11.2.3,
                  blaze-html >= 0.4.3.3,
                  gitstar-policy == 0.1.2
 
-  Ghc-Options: -Wall -fno-warn-orphans -fno-warn-unused-do-bind
+  Ghc-Options: -Wall -fno-warn-orphans -fno-warn-unused-do-bind -fno-warn-name-shadowing
   --Extensions: Safe
   Other-Modules: Gitstar

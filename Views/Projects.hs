@@ -13,7 +13,7 @@ module Views.Projects ( showProject
 
 import Prelude hiding (div, id, span, (++), null)
 import qualified Prelude
-import Control.Monad
+import Control.Monad hiding (join)
 
 import Data.Monoid
 import Data.Maybe
@@ -30,7 +30,7 @@ transformAppUrl :: Text -> Text -> Text -> Text
 transformAppUrl url user proj =
   replace "$user" user $ replace "$project" proj url
   where replace wrd to = (join to) . (splitOn wrd)
-        join joiner (x:[]) = x
+        join _ (x:[]) = x
         join joiner (x:xs) = x ++ joiner ++ (join joiner xs)
         join _ [] = mempty
 
