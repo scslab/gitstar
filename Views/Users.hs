@@ -59,9 +59,12 @@ showUser user projs = do
       _ -> ""
   unless (null projs) $ do
     h2 $ toHtml $ "Projects (" ++ (show . length $ projs) ++ ")"
-    ul $ forM_ projs $ \proj ->
-        li $ a ! href (toValue $ "/" ++ (userName user) ++ "/" ++ (projectName proj)) $
-                      toHtml (projectName proj)
+    ul ! class_ "projects" $ forM_ projs $ \project ->
+          li ! class_ "project" $ do 
+            h3 $ a ! href
+              (toValue $ "/" ++ projectOwner project ++ "/" ++ projectName project) $ do
+                toHtml $ projectName project
+            p $ toHtml $ projectDescription project
 
 editUser :: User -> Html
 editUser user = do

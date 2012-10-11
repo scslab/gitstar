@@ -38,11 +38,13 @@ listProjects :: [Project] -> Html
 listProjects projects = do
   div ! class_ "page-header" $
     h1 $ "GitStar Projects"
-  ul $ do
+  ul ! class_ "projects" $ do
     forM_ projects $ \project -> do
-      li $ p $ a ! href
-        (toValue $ "/" ++ projectOwner project ++ "/" ++ projectName project) $ do
-          toHtml $ projectOwner project ++ "/" ++ projectName project
+      li ! class_ "project" $ do 
+        h3 $ a ! href
+          (toValue $ "/" ++ projectOwner project ++ "/" ++ projectName project) $ do
+            toHtml $ projectOwner project ++ "/" ++ projectName project
+        p $ toHtml $ projectDescription project
 
 showProject :: Maybe UserName -> Project -> [GitstarApp] -> Maybe Project -> Html
 showProject muser proj apps forkedProj = do
@@ -99,16 +101,19 @@ showProject muser proj apps forkedProj = do
         input ! type_ "hidden" ! name "apps[]" ! id "new_app"
         input ! type_ "submit" ! class_ "btn btn-primary" ! value "Add"
 
-formProject :: Maybe Project -> Html
-formProject mproj = do
+formProject :: UserName -> Maybe Project -> Html
+formProject curUser mproj = do
   form ! action "/projects" ! method "POST" ! id "project" $ do
     case mproj of
       Just proj -> do
         input ! type_ "hidden" ! name "_method" ! value "PUT"
         input ! type_ "hidden" ! name "name" ! value (toValue (projectName proj))
-      Nothing -> div $ do
-                   label "Name"
-                   input ! type_ "text" ! name "name"
+        input ! type_ "hidden" ! name "owner" ! value (toValue (projectOwner proj))
+      Nothing -> do
+                  input ! type_ "hidden" ! name "owner" ! value (toValue curUser)
+                  div $ do
+                    label "Name"
+                    input ! type_ "text" ! name "name"
     div $ do
       label "Description"
       textarea ! name "description" $ toHtml $
@@ -180,11 +185,11 @@ editProject proj = do
       unless (isPublic proj) $
         i ! class_ "icon-lock" ! title "Private project" $ ""
   p $ a ! href (toValue $ "/" ++ projectOwner proj ++ "/" ++ projectName proj) $ "view"
-  formProject $ Just proj
+  formProject (projectOwner proj) $ Just proj
 
-newProject :: Html
-newProject = do
+newProject :: UserName -> Html
+newProject curUser = do
   div ! class_ "page-header" $
     h1 "New Project"
-  formProject Nothing
+  formProject curUser Nothing
 

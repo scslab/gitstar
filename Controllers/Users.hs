@@ -46,8 +46,9 @@ userShow = do
 usersController :: RESTController ()
 usersController = do
   index $ do
+    query <- queryParam "q"
     users <- liftLIO $ withGitstar $
-      findAll $ select [] "users"
+      findAll $ select ["_id" -: query] "users"
     renderHtml $ listUsers users
 
   -- /:id where :id is the user name

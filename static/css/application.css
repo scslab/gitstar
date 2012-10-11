@@ -26,6 +26,18 @@ p {
   border: 0px;
 }
 
+ul.projects {
+  margin: 0;
+}
+
+li.project {
+  list-style: none;
+  margin: 0 0 25px 0;
+  padding-left: 25px;
+  border-bottom: 2px solid #ccc;
+  max-width: 900px;
+}
+
 .project_app {
   width: 100%;
   height: 370px;

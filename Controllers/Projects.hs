@@ -9,6 +9,7 @@ module Controllers.Projects ( projectsController ) where
 
 import Prelude hiding (lookup, show, (++))
 import qualified Prelude
+import Text.Blaze.Html
 
 import Layouts
 import Gitstar.Models
@@ -29,8 +30,6 @@ import Hails.Web.REST
 import Hails.Web.Responses
 
 import Utils
-
-import Debug.Trace
 
 projectsController :: RESTController ()
 projectsController = do
@@ -69,7 +68,7 @@ projectsController = do
               with404orJust mProj $ \proj -> renderHtml $ editProject proj
 
   -- /projects/new
-  new $ withUserOrDoAuth $ \_ -> renderHtml newProject
+  new $ withUserOrDoAuth $ renderHtml . newProject
 
   -- Create a new project (from scractch or fork)
   -- TODO: mkProject may throw an exception if the document is not
@@ -77,7 +76,7 @@ projectsController = do
   create $ withUserOrDoAuth $ \uName -> do
     lreq   <- request
     ldoc <- liftLIO $ labeledRequestToHson lreq
-    lproj  <- liftLIO $ mkProject uName ldoc
+    lproj  <- liftLIO $ mkProject ldoc
     proj   <- liftLIO $ unlabel lproj
     let pOwner = projectOwner proj
         pName  = projectName  proj
@@ -93,11 +92,10 @@ projectsController = do
 
   update $ withUserOrDoAuth $ \uName -> do
     req <- request
-    trace (Prelude.show $ labelOf req) $ return ()
     ldoc <- liftLIO $ labeledRequestToHson req
+    lproj <- mkProject ldoc >>= partialProjectUpdate
     doc <- unlabel ldoc
     projName <- fmap (S8.pack . T.unpack) $ lookup "name" doc
-    lproj <- partialProjectUpdate uName (T.pack $ S8.unpack projName) ldoc
     withGitstar $ do
       saveLabeledRecord lproj
     return $ redirectTo $ (T.unpack $ "/" ++ uName ++ "/") ++ (S8.unpack projName)
