@@ -24,7 +24,7 @@ listUsers users = do
   ul $ do
     forM_ users $ \user -> do
       li $ p $ a ! href (toValue $ "/" ++ userName user) $ do
-        let gravatar = show . md5 $ fromMaybe "" $ userGravatar user
+        let gravatar = md5 $ fromMaybe "" $ userGravatar user
         img ! src (toValue $ "https://secure.gravatar.com/avatar/" ++ gravatar ++ "?s=25")
         " "
         case userFullName user of
@@ -37,7 +37,7 @@ showUser :: User -> [Project] -> Html
 showUser user projs = do
   div ! class_ "page-header" $
     h1 $ do
-      let gravatar = show.md5 $ fromMaybe "" $ userGravatar user
+      let gravatar = md5 $ fromMaybe "" $ userGravatar user
       img ! src (toValue $ "https://secure.gravatar.com/avatar/" ++ gravatar ++ "?s=48")
       toHtml $ " " ++ userName user
   p ! class_ "well" $ do
@@ -80,8 +80,6 @@ formUser muser =
         input ! type_ "hidden"
               ! name "_method"
               ! value "PUT"
-        input ! type_ "hidden" ! name "_id"
-              ! (value $ toValue $ userName user)
       _ -> return ()
     div $ do
       label "Name"

@@ -10,6 +10,7 @@ module Utils
   ) where
 
 import Prelude hiding ((++))
+import Data.Char (toLower)
 import Data.Monoid
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Text as T
@@ -19,6 +20,8 @@ import Hails.Web.Controller
 import Hails.Web.Responses
 import LIO
 import Network.HTTP.Types.Header
+import qualified Crypto.Hash.MD5 as MD5
+import Data.Hex
 
 (++) :: Monoid a => a -> a -> a
 (++) = mappend
@@ -34,8 +37,8 @@ with404orJust ma act = case ma of
                     Just a -> act a
                     Nothing -> return notFound
 
-md5 :: a -> a
-md5 g = g
+md5 :: T.Text -> String
+md5 = (map toLower) . S8.unpack . hex . MD5.hash . S8.pack . T.unpack
 
 getHailsUser :: Controller (Maybe UserName)
 getHailsUser = do

@@ -31,6 +31,7 @@ import Hails.Web.Responses
 
 import Utils
 
+
 projectsController :: RESTController ()
 projectsController = do
   index $ do
@@ -94,10 +95,10 @@ projectsController = do
     req <- request
     ldoc <- liftLIO $ labeledRequestToHson req
     lproj <- mkProject ldoc >>= partialProjectUpdate
-    doc <- unlabel ldoc
-    projName <- fmap (S8.pack . T.unpack) $ lookup "name" doc
     withGitstar $ do
       saveLabeledRecord lproj
+    doc <- unlabel ldoc
+    projName <- fmap (S8.pack . T.unpack) $ lookup "name" doc
     return $ redirectTo $ (T.unpack $ "/" ++ uName ++ "/") ++ (S8.unpack projName)
 
   where projExists owner projName = withGitstar $ do
