@@ -27,9 +27,8 @@ import qualified Data.Text as T
 import Hails.HttpServer
 import Hails.Data.Hson
 import Hails.Database.Structured
+import Hails.Web
 import Hails.Web.REST
-import Hails.Web.Controller
-import Hails.Web.Responses
 
 import Utils
 
@@ -53,7 +52,7 @@ doListKeys updateFlag uName = do
     where mkDoc :: [SSHKey] -> Document
           mkDoc ks = ["keys" -: map sshKeyToBson ks] :: Document
 
-keysController :: RESTController ()
+keysController :: RESTController
 keysController = do
   index $ withUserOrDoAuth (doListKeys True)
 
@@ -62,7 +61,7 @@ keysController = do
   create $ withUserOrDoAuth $ \uName -> do
     lreq <- request
     liftLIO $ do
-      ldoc  <- labeledRequestToHson lreq
+      let ldoc = labeledRequestToHson lreq
       luser  <- addUserKey uName ldoc
       withGitstar $ do
               saveLabeledRecord luser
@@ -73,7 +72,7 @@ keysController = do
     lreq <- request
     liftLIO $ do
       --u0 <- getOrCreateUser uName
-      ldoc  <- labeledRequestToHson lreq
+      let ldoc = labeledRequestToHson lreq
       luser  <- delUserKey uName ldoc
       withGitstar $ do
             saveLabeledRecord luser

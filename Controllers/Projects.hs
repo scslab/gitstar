@@ -28,11 +28,12 @@ import Hails.Database.Structured
 import Hails.Web.Controller
 import Hails.Web.REST
 import Hails.Web.Responses
+import Hails.Web.User
 
 import Utils
 
 
-projectsController :: RESTController ()
+projectsController :: RESTController
 projectsController = do
   index $ do
     projects <- liftLIO $ withGitstar $
@@ -76,7 +77,7 @@ projectsController = do
   -- "well-formed". We can handle this more gracefully.
   create $ withUserOrDoAuth $ \uName -> do
     lreq   <- request
-    ldoc <- liftLIO $ labeledRequestToHson lreq
+    let ldoc = labeledRequestToHson lreq
     lproj  <- liftLIO $ mkProject ldoc
     proj   <- liftLIO $ unlabel lproj
     let pOwner = projectOwner proj
@@ -93,7 +94,7 @@ projectsController = do
 
   update $ withUserOrDoAuth $ \uName -> do
     req <- request
-    ldoc <- liftLIO $ labeledRequestToHson req
+    let ldoc = labeledRequestToHson req
     lproj <- mkProject ldoc >>= partialProjectUpdate
     withGitstar $ do
       saveLabeledRecord lproj

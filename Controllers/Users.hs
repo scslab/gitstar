@@ -25,9 +25,8 @@ import qualified Data.Text as T
 import Hails.HttpServer
 import Hails.Database
 import Hails.Database.Structured
-import Hails.Web.Controller
+import Hails.Web
 import Hails.Web.REST
-import Hails.Web.Responses
 
 import Utils
 
@@ -43,7 +42,7 @@ userShow = do
     renderHtml $ showUser user projects
 
 -- | Usercontroller
-usersController :: RESTController ()
+usersController :: RESTController
 usersController = do
   index $ do
     query <- queryParam "q"
@@ -64,7 +63,7 @@ userEdit = withUserOrDoAuth $ \uName -> do
 userUpdate :: Controller Response
 userUpdate = withUserOrDoAuth $ \uName -> do
   lreq <- request
-  ldoc  <- liftLIO $ labeledRequestToHson lreq
+  let ldoc = labeledRequestToHson lreq
   luser  <- liftLIO $ partialUserUpdate uName ldoc
   withGitstar $ do
           saveLabeledRecord luser

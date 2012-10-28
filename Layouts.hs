@@ -18,6 +18,7 @@ import Control.Monad
 import Hails.HttpServer
 import Hails.Web.Controller hiding (body)
 import Hails.Web.Responses
+import Hails.Web.User
 
 import Prelude hiding (head, id, div, span)
 import Text.Blaze.Html5 hiding (map)
