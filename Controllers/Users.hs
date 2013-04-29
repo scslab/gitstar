@@ -63,7 +63,7 @@ userEdit = withUserOrDoAuth $ \uName -> do
 userUpdate :: Controller Response
 userUpdate = withUserOrDoAuth $ \uName -> do
   lreq <- request
-  let ldoc = labeledRequestToHson lreq
+  ldoc <- labeledRequestToHson lreq
   luser  <- liftLIO $ partialUserUpdate uName ldoc
   withGitstar $ do
           saveLabeledRecord luser

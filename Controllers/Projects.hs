@@ -77,7 +77,7 @@ projectsController = do
   -- "well-formed". We can handle this more gracefully.
   create $ withUserOrDoAuth $ \uName -> do
     lreq   <- request
-    let ldoc = labeledRequestToHson lreq
+    ldoc <- labeledRequestToHson lreq
     lproj  <- liftLIO $ mkProject ldoc
     proj   <- liftLIO $ unlabel lproj
     let pOwner = projectOwner proj
@@ -94,7 +94,7 @@ projectsController = do
 
   update $ withUserOrDoAuth $ \uName -> do
     req <- request
-    let ldoc = labeledRequestToHson req
+    ldoc <- labeledRequestToHson req
     lproj <- mkProject ldoc >>= partialProjectUpdate
     withGitstar $ do
       saveLabeledRecord lproj

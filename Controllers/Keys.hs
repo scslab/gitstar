@@ -61,7 +61,7 @@ keysController = do
   create $ withUserOrDoAuth $ \uName -> do
     lreq <- request
     liftLIO $ do
-      let ldoc = labeledRequestToHson lreq
+      ldoc <- labeledRequestToHson lreq
       luser  <- addUserKey uName ldoc
       withGitstar $ do
               saveLabeledRecord luser
@@ -72,7 +72,7 @@ keysController = do
     lreq <- request
     liftLIO $ do
       --u0 <- getOrCreateUser uName
-      let ldoc = labeledRequestToHson lreq
+      ldoc <- labeledRequestToHson lreq
       luser  <- delUserKey uName ldoc
       withGitstar $ do
             saveLabeledRecord luser
