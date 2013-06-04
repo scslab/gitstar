@@ -16,8 +16,6 @@ import Hails.HttpServer
 import Hails.Web.Controller
 import Hails.Web.User
 
-import Utils
-
 import Gitstar.Policy
 
 welcome :: Controller Response

@@ -10,8 +10,6 @@ import Gitstar.Policy
 
 import Data.Maybe
 import Data.Monoid
-import qualified Data.Text as T
-import qualified Data.ByteString.Char8 as S8
 
 import Control.Monad
 

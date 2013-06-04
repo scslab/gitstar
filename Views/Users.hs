@@ -76,7 +76,7 @@ formUser :: Maybe User -> Html
 formUser muser = 
   form ! action "/user" ! method "POST" $ do
     case muser of
-      Just user -> do
+      Just _ -> do
         input ! type_ "hidden"
               ! name "_method"
               ! value "PUT"

@@ -9,7 +9,6 @@ module Controllers.Projects ( projectsController ) where
 
 import Prelude hiding (lookup, show, (++))
 import qualified Prelude
-import Text.Blaze.Html
 
 import Layouts
 import Gitstar.Models
@@ -98,7 +97,7 @@ projectsController = do
     lproj <- mkProject ldoc >>= partialProjectUpdate
     withGitstar $ do
       saveLabeledRecord lproj
-    doc <- unlabel ldoc
+    doc <- liftLIO $ unlabel ldoc
     projName <- fmap (S8.pack . T.unpack) $ lookup "name" doc
     return $ redirectTo $ (T.unpack $ "/" ++ uName ++ "/") ++ (S8.unpack projName)
 

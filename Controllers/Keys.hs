@@ -30,8 +30,6 @@ import Hails.Database.Structured
 import Hails.Web
 import Hails.Web.REST
 
-import Utils
-
 -- | List keys for the user specified by parameter @user_name@
 listKeys :: Controller Response
 listKeys = do
@@ -65,7 +63,7 @@ keysController = do
       luser  <- addUserKey uName ldoc
       withGitstar $ do
               saveLabeledRecord luser
-              unlabel luser
+              liftLIO $ unlabel luser
     return $ redirectTo "/keys"
 
   delete $ withUserOrDoAuth $ \uName -> do
@@ -76,7 +74,6 @@ keysController = do
       luser  <- delUserKey uName ldoc
       withGitstar $ do
             saveLabeledRecord luser
-            unlabel luser
     redirectBack
     {-if u0 == u1
       then flashError "User keys were not changed."

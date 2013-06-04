@@ -12,13 +12,10 @@ import Data.Char (toLower)
 import Data.Monoid
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Text as T
-import Gitstar.Models
 import Hails.HttpServer
 import Hails.Web.Controller
 import Hails.Web.Responses
 import Hails.Web.User
-import LIO
-import Network.HTTP.Types.Header
 import qualified Crypto.Hash.MD5 as MD5
 import Data.Hex
 
