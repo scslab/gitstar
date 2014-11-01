@@ -99,8 +99,8 @@ showProject muser proj apps forkedProj = do
         input ! type_ "hidden" ! name "apps[]" ! id "new_app"
         input ! type_ "submit" ! class_ "btn btn-primary" ! value "Add"
 
-formProject :: Maybe Project -> Html
-formProject mproj = do
+formProject :: UserName -> Maybe Project -> Html
+formProject owner mproj = do
   let act = toValue $ (maybe "/projects" (\proj -> "/" ++ projectOwner proj
                                             ++ "/" ++ projectName proj) mproj)
   form ! action act ! method "POST" ! id "project" $ do
@@ -111,6 +111,7 @@ formProject mproj = do
       Nothing -> div $ do
                    label "Name"
                    input ! type_ "text" ! name "name"
+    input ! type_ "hidden" ! name "owner" ! value (toValue owner)
     div $ do
       label "Description"
       textarea ! name "description" $ toHtml $
@@ -182,11 +183,11 @@ editProject proj = do
       unless (isPublic proj) $
         i ! class_ "icon-lock" ! title "Private project" $ ""
   p $ a ! href (toValue $ "/" ++ projectOwner proj ++ "/" ++ projectName proj) $ "view"
-  formProject $ Just proj
+  formProject (projectOwner proj) $ Just proj
 
-newProject :: Html
-newProject = do
+newProject :: UserName -> Html
+newProject uName = do
   div ! class_ "page-header" $
     h1 "New Project"
-  formProject Nothing
+  formProject uName Nothing
 

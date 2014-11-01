@@ -14,4 +14,4 @@ main = do
       app conf req = server conf req
   setEnv "DATABASE_CONFIG_FILE" "database.conf"
   runSettings (setPort port defaultSettings) $
-    logStdoutDev $ execHailsApplication (devBasicAuth . methodOverride) app
+    logStdoutDev $ execHailsApplication (methodOverride . devBasicAuth) app

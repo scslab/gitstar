@@ -69,16 +69,16 @@ projectsController = do
               with404orJust mProj $ \proj -> renderHtml $ editProject proj
 
   -- /projects/new
-  new $ withUserOrDoAuth $ \_ -> renderHtml newProject
+  new $ withUserOrDoAuth $ \uName -> renderHtml (newProject uName)
 
   -- Create a new project (from scractch or fork)
   -- TODO: mkProject may throw an exception if the document is not
   -- "well-formed". We can handle this more gracefully.
   create $ withUserOrDoAuth $ \uName -> do
-    lreq   <- request
-    ldoc <- liftLIO $ labeledRequestToHson lreq
-    lproj  <- liftLIO $ mkProject ldoc
-    proj   <- liftLIO $ unlabel lproj
+    lreq  <- request
+    ldoc  <- liftLIO $ labeledRequestToHson lreq
+    lproj <- liftLIO $ mkProject ldoc
+    proj  <- liftLIO $ unlabel lproj
     let pOwner = projectOwner proj
         pName  = projectName  proj
 
@@ -96,7 +96,7 @@ projectsController = do
     req <- request
     ldoc <- liftLIO $ labeledRequestToHson req
     doc <- liftLIO $ unlabel ldoc
-    projName <- fmap (S8.pack . T.unpack) $ lookup "name" doc
+    (Just projName) <- queryParam "id"
     lproj0  <- liftLIO $ mkProject ldoc
     lproj <- partialProjectUpdate lproj0
     withGitstar $ do

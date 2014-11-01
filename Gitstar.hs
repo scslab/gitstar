@@ -23,8 +23,9 @@ server = mkRouter $ do
     routeName "keys" keysController
     routeMethod GET $ routeName "user" $ routeName "edit" userEdit
     routeMethod PUT $ routeName "user" userUpdate
-    routeName "projects" projectsController
     routeName "users" usersController
+    routeName "projects" projectsController
+
     routeVar "id" $ do
       routeTop $ userShow
       routeName "keys" listKeys
