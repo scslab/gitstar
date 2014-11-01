@@ -101,7 +101,9 @@ showProject muser proj apps forkedProj = do
 
 formProject :: Maybe Project -> Html
 formProject mproj = do
-  form ! action "/projects" ! method "POST" ! id "project" $ do
+  let act = toValue $ (maybe "/projects" (\proj -> "/" ++ projectOwner proj
+                                            ++ "/" ++ projectName proj) mproj)
+  form ! action act ! method "POST" ! id "project" $ do
     case mproj of
       Just proj -> do
         input ! type_ "hidden" ! name "_method" ! value "PUT"

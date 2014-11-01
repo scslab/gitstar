@@ -34,4 +34,3 @@ goodbye = withUserOrDoAuth $ \usr -> do
 --  delCookie "_hails_user" domain
 --  delCookie "_hails_user_hmac" domain
   homeHtml $ goodbyeView usr
-
