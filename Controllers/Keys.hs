@@ -19,11 +19,9 @@ import Gitstar.Policy
 import Views.Keys
 
 import LIO
-import LIO.DCLabel
 
-import Data.Maybe (fromJust, fromMaybe)
+import Data.Maybe (fromMaybe)
 import qualified Data.ByteString.Char8 as S8
-import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.Text as T
 
 import Hails.HttpServer
@@ -32,8 +30,6 @@ import Hails.Database.Structured
 import Hails.Web.REST
 import Hails.Web.Controller
 import Hails.Web.Responses
-
-import Gitstar.Models
 
 import Utils
 
@@ -48,7 +44,7 @@ listKeys = do
 -- | Given a labeled username actually list the keys for the user.
 doListKeys :: Bool -> UserName -> Controller Response
 doListKeys updateFlag uName = do
-  user <- liftLIO $ getOrCreateUser uName
+  _ <- liftLIO $ getOrCreateUser uName
   keys  <- liftLIO $ userKeys `liftM` getOrCreateUser uName
   atype <- requestHeader "accept"
   case atype of
@@ -58,7 +54,7 @@ doListKeys updateFlag uName = do
     where mkDoc :: [SSHKey] -> Document
           mkDoc ks = ["keys" -: map sshKeyToBson ks] :: Document
 
-keysController :: RESTController ()
+keysController :: RESTController
 keysController = do
   index $ withUserOrDoAuth (doListKeys True)
 
@@ -71,7 +67,7 @@ keysController = do
       luser  <- addUserKey uName ldoc
       withGitstar $ do
               saveLabeledRecord luser
-              unlabel luser
+              liftLIO $ unlabel luser
     return $ redirectTo "/keys"
 
   delete $ withUserOrDoAuth $ \uName -> do
@@ -82,7 +78,7 @@ keysController = do
       luser  <- delUserKey uName ldoc
       withGitstar $ do
             saveLabeledRecord luser
-            unlabel luser
+            liftLIO $ unlabel luser
     redirectBack
     {-if u0 == u1
       then flashError "User keys were not changed."

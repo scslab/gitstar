@@ -17,7 +17,6 @@ import Gitstar.Policy
 import Views.Users
 
 import LIO
-import LIO.DCLabel
 
 import Data.Maybe (catMaybes)
 import qualified Data.ByteString.Char8 as S8
@@ -44,7 +43,7 @@ userShow = do
     renderHtml $ showUser user projects
 
 -- | Usercontroller
-usersController :: RESTController ()
+usersController :: RESTController
 usersController = do
   index $ do
     users <- liftLIO $ withGitstar $
@@ -69,6 +68,6 @@ userUpdate = withUserOrDoAuth $ \uName -> do
     luser  <- partialUserUpdate uName ldoc
     withGitstar $ do
             saveLabeledRecord luser
-            unlabel luser
+            liftLIO $ unlabel luser
   respond $ redirectTo $ T.unpack $ "/" ++ uName
 

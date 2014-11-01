@@ -28,7 +28,7 @@ import Hails.Web.Controller
 
 import Utils
 
-appsController :: RESTController ()
+appsController :: RESTController
 appsController = do
   index $ withUserOrDoAuth $ \uName -> do
     req <- request >>= liftLIO . unlabel

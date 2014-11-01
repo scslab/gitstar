@@ -16,15 +16,12 @@ import Gitstar.Policy
 import Views.Projects
 
 import LIO
-import LIO.DCLabel
 
 
-import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Text as T
 import Data.Maybe
 
-import Hails.HttpServer
 import Hails.Data.Hson
 import Hails.Database
 import Hails.Database.Structured
@@ -36,7 +33,7 @@ import Utils
 
 import Debug.Trace
 
-projectsController :: RESTController ()
+projectsController :: RESTController
 projectsController = do
   index $ do
     projects <- liftLIO $ withGitstar $
@@ -81,11 +78,10 @@ projectsController = do
   create $ withUserOrDoAuth $ \uName -> do
     lreq   <- request
     ldoc <- liftLIO $ labeledRequestToHson lreq
-    lproj  <- liftLIO $ mkProject uName ldoc
+    lproj  <- liftLIO $ mkProject ldoc
     proj   <- liftLIO $ unlabel lproj
     let pOwner = projectOwner proj
         pName  = projectName  proj
-        isFork = isJust $ projectForkedFrom proj
 
     exists <- projExists pOwner pName
 
@@ -101,9 +97,10 @@ projectsController = do
     req <- request
     trace (Prelude.show $ labelOf req) $ return ()
     ldoc <- liftLIO $ labeledRequestToHson req
-    doc <- unlabel ldoc
+    doc <- liftLIO $ unlabel ldoc
     projName <- fmap (S8.pack . T.unpack) $ lookup "name" doc
-    lproj <- partialProjectUpdate uName (T.pack $ S8.unpack projName) ldoc
+    lproj0  <- liftLIO $ mkProject ldoc
+    lproj <- partialProjectUpdate lproj0
     withGitstar $ do
       saveLabeledRecord lproj
     return $ redirectTo $ (T.unpack $ "/" ++ uName ++ "/") ++ (S8.unpack projName)
