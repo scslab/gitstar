@@ -4,6 +4,7 @@ import Hails.HttpServer
 import Hails.HttpServer.Auth
 import Network.Wai.Handler.Warp
 import Network.Wai.Middleware.RequestLogger
+import Network.Wai.Middleware.MethodOverride
 import Gitstar (server)
 import System.Environment
 
@@ -13,4 +14,4 @@ main = do
       app conf req = server conf req
   setEnv "DATABASE_CONFIG_FILE" "database.conf"
   runSettings (setPort port defaultSettings) $
-    logStdoutDev $ execHailsApplication devBasicAuth app
+    logStdoutDev $ execHailsApplication (devBasicAuth . methodOverride) app

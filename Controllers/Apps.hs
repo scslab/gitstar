@@ -12,6 +12,7 @@ module Controllers.Apps ( appsController ) where
 import LIO
 
 import qualified Data.ByteString.Char8 as S8
+import qualified Data.ByteString.Lazy.Char8 as L8
 import Data.Map (fromList, Map)
 import Data.Maybe
 import qualified Data.Text as T
@@ -27,6 +28,7 @@ import Hails.Web.Responses
 import Hails.Web.Controller
 
 import Utils
+import Debug.Trace
 
 appsController :: RESTController
 appsController = do
@@ -59,22 +61,20 @@ appsController = do
 
   new $ withUserOrDoAuth $ \user ->
     renderHtml $ newApp user
-{-
-  restCreate _ = withUserOrDoAuth $ \_ -> do
-    policy <- liftLIO gitstar
-    ldoc   <- bodyToLDoc
-    liftLIO $ withDB policy $ do
-      insert "apps" ldoc
-    redirectTo "/apps"
 
-  restUpdate _ aid = withUserOrDoAuth $ \_ -> do
-    policy <- liftLIO gitstar
-    ldoc   <- bodyToLDoc
-    doc <- liftLIO $ unlabel ldoc
-    if at "_id" doc == (L8.unpack aid) then do
-      liftLIO $ withDB policy $ do
-        save "apps" ldoc
-      redirectTo "/apps"
-      else respondStat stat403
--}
+  create $ withUserOrDoAuth $ \user -> do
+    lreq <- request
+    liftLIO $ do
+      ldoc  <- labeledRequestToHson lreq
+      withGitstar $ insert_ "apps" ldoc
+    respond $ redirectTo "/apps"
 
+  update $ withUserOrDoAuth $ \_ -> do
+    (Just aid) <- queryParam "id"
+    lreq <- request
+    ldoc  <- liftLIO $ labeledRequestToHson lreq
+    doc   <- liftLIO $ unlabel ldoc
+    if at "_id" doc == (S8.unpack aid) 
+      then do withGitstar $ save "apps" ldoc
+              respond $ redirectTo "/apps"
+      else respond forbidden

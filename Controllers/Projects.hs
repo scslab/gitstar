@@ -31,7 +31,6 @@ import Hails.Web.Responses
 
 import Utils
 
-import Debug.Trace
 
 projectsController :: RESTController
 projectsController = do
@@ -95,7 +94,6 @@ projectsController = do
 
   update $ withUserOrDoAuth $ \uName -> do
     req <- request
-    trace (Prelude.show $ labelOf req) $ return ()
     ldoc <- liftLIO $ labeledRequestToHson req
     doc <- liftLIO $ unlabel ldoc
     projName <- fmap (S8.pack . T.unpack) $ lookup "name" doc

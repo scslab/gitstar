@@ -10,6 +10,7 @@ module Views.Apps where
 import Prelude hiding (div, span, (++))
 import Control.Monad
 import Data.Monoid
+import Data.Maybe
 
 import Gitstar.Models
 import Text.Blaze.Html5 hiding (title)
@@ -21,9 +22,12 @@ import Text.Blaze.Html5.Attributes hiding (id, label, form, span)
 appForm :: Maybe GitstarApp -> UserName -> Html
 appForm mapp user = 
   form ! action (toValue $ "/apps/" ++ maybe "" appId mapp) ! method "POST" $ do
+    when (isJust mapp) $
+        input ! type_ "hidden" ! name "_method" ! value "PUT"
     input ! type_ "hidden" ! value (toValue user) ! name "owner"
     case mapp of
-      Just app -> input ! type_ "hidden" ! name "_id" ! value (toValue $ appId app)
+      Just app -> do
+        input ! type_ "hidden" ! name "_id" ! value (toValue $ appId app)
       Nothing -> div $ do
         label "Unique Id"
         input ! type_ "text" ! name "_id" ! placeholder "myappid"
